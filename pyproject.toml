@@ -1,0 +1,9 @@
+[project]
+name = "smartslope"
+version = "0.0.1"
+description = "Synthetic data + algorithms for coherent radar slope deformation detection"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24",
+  "matplotlib>=3.7"
+]
