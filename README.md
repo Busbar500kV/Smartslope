@@ -1,14 +1,20 @@
 # Smartslope
 Synthetic data and algorithms for radar-based slope movement detection - by යසස් පොන්වීර
 
+Objective: build and calibrate algorithms for slope deformation detection using coherent radar concepts,
+starting with synthetic data for any planned installation geometry.
 
-# Smartslope
+Workflow (Busbar):
+- All code, configs, synthetic datasets, and outputs live in this repo.
+- Run generation + detection on Busbar via SSH.
+- Commit generated artifacts back to GitHub.
 
-Synthetic data generation and algorithm prototyping
-for ground-based radar slope movement monitoring.
+Current scope:
+- Synthetic generator for coherent phase time-series per reflector (slope + reference targets)
+- Drift/noise/dropouts modeling
+- Baseline detection pipeline (drift removal, phase→displacement, coherence/persistence event logic)
 
-This repository contains tools to:
-- Generate synthetic coherent radar measurements for planned installations
-- Model motion scenarios (creep, accelerating creep, steps)
-- Simulate noise, phase drift, and dropouts
-- Provide baseline datasets for algorithm development
+Repo layout:
+- code/ : python + shell
+- data/ : generated synthetic datasets (kept small)
+- outputs/ : plots + reports
