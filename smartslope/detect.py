@@ -9,7 +9,8 @@ from .math_utils import nanmedian_1d
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parents[4]
+    # .../Smartslope/smartslope/detect.py -> root is 1 level up
+    return Path(__file__).resolve().parents[1]
 
 
 def phase_to_disp(phi_rad: np.ndarray, wavelength_m: float) -> np.ndarray:

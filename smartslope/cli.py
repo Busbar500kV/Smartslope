@@ -77,7 +77,7 @@ def run_pipeline(config_path: Path, outdir: Path) -> None:
     plt.figure(figsize=(10, 4))
     plt.plot(t / 3600.0, score, linewidth=2)
     plt.xlabel("Time (hours)")
-    plt.ylabel("Count (|disp| ≥ 2cm) among slope reflectors")
+    plt.ylabel("Count (|disp| >= 2cm) among slope reflectors")
     plt.title("Smartslope: Simple Coherence Score")
     plt.grid(True, alpha=0.3)
     

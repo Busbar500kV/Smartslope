@@ -163,8 +163,8 @@ def simulate(cfg: InstallCfg) -> Dict[str, np.ndarray]:
 
 
 def repo_root() -> Path:
-    # .../Smartslope/code/synthetic/src/simulate.py -> root is 4 levels up
-    return Path(__file__).resolve().parents[4]
+    # .../Smartslope/smartslope/simulate.py -> root is 1 level up
+    return Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
