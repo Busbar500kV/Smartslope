@@ -284,7 +284,7 @@ def generate_report(
         f.write("The coherent radar measures phase change proportional to LOS displacement:\n\n")
         f.write(f"```\nΔφ = (4π/λ) × Δr_LOS\n```\n\n")
         f.write(f"For this installation with λ = {wavelength_m * 1000:.2f} mm:\n")
-        f.write(f"- 1 mm LOS displacement = {4 * np.pi / wavelength_m:.3f} radians\n")
+        f.write(f"- 1 mm LOS displacement = {4 * np.pi / (wavelength_m * 1000):.3f} radians\n")
         f.write(f"- 2π radians (one fringe) = {wavelength_m / 2 * 1000:.3f} mm LOS displacement\n\n")
     
     print(f"Wrote {report_path}")
