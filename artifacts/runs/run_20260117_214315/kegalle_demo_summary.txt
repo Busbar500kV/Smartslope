@@ -1,0 +1,4 @@
+Input: /home/busbar/github/Smartslope/data/synthetic/kegalle_demo_run.npz
+Wavelength (m): 0.0125
+Reflectors: 5 (refs=2, slope=3)
+Max score: 3
