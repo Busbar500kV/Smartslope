@@ -15,7 +15,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 
 def get_git_commit_hash() -> str:
@@ -67,7 +67,7 @@ def is_git_clean() -> bool:
         return False
 
 
-def check_git_safety(force: bool = False) -> tuple[bool, str]:
+def check_git_safety(force: bool = False) -> Tuple[bool, str]:
     """
     Check if it's safe to publish.
     
@@ -280,6 +280,11 @@ def main() -> int:
     else:
         # Auto-detect: this script is in scripts/, so repo_root is parent
         repo_root = Path(__file__).resolve().parent.parent
+    
+    # Validate repo root
+    if not (repo_root / "scripts").exists() or not (repo_root / "smartslope").exists():
+        print(f"✗ Error: {repo_root} does not appear to be a valid Smartslope repository root")
+        return 1
     
     outputs_dir = repo_root / "outputs"
     artifacts_dir = repo_root / "artifacts"
