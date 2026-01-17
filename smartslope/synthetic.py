@@ -122,7 +122,10 @@ def simulate(cfg: InstallCfg) -> Dict[str, np.ndarray]:
     # Initialize 3D displacement array (reflectors, time, xyz)
     disp3 = np.zeros((xyz.shape[0], n, 3), dtype=float)
 
-    mm_per_day_to_m_per_s = 1e-3 / (24.0 * 3600.0)
+    # Conversion factors
+    MM_TO_M = 1e-3
+    SECONDS_PER_DAY = 24.0 * 3600.0
+    mm_per_day_to_m_per_s = MM_TO_M / SECONDS_PER_DAY
     
     if cfg.motion.model == "none":
         pass
@@ -136,14 +139,14 @@ def simulate(cfg: InstallCfg) -> Dict[str, np.ndarray]:
 
     elif cfg.motion.model == "accelerating":
         v0 = cfg.motion.creep_mm_per_day * mm_per_day_to_m_per_s
-        a = cfg.motion.accel_mm_per_day2 * (1e-3 / (24.0 * 3600.0) ** 2)
+        a = cfg.motion.accel_mm_per_day2 * (MM_TO_M / (SECONDS_PER_DAY ** 2))
         disp_mag = v0 * t + 0.5 * a * t * t
         for i in range(xyz.shape[0]):
             if roles[i] == "slope":
                 disp3[i] = disp_mag[:, None] * direction[None, :]
 
     elif cfg.motion.model == "step":
-        step_m = cfg.motion.step_mm * 1e-3
+        step_m = cfg.motion.step_mm * MM_TO_M
         k = int(cfg.motion.step_at_sample)
         for i in range(xyz.shape[0]):
             if roles[i] == "slope":
@@ -201,8 +204,8 @@ def simulate(cfg: InstallCfg) -> Dict[str, np.ndarray]:
 
 
 def repo_root() -> Path:
-    """Get repository root directory."""
-    # smartslope/synthetic.py -> root is 2 levels up
+    """Get repository root directory (2 levels up from smartslope/synthetic.py)."""
+    # smartslope/synthetic.py -> smartslope -> repo_root
     return Path(__file__).resolve().parents[1]
 
 

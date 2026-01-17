@@ -187,10 +187,12 @@ def main() -> None:
 
     # Stage 4: Detect events
     print("Detecting events...")
+    disp_threshold_m = 0.02  # 2 cm
+    vel_threshold_m_per_s = 1e-6  # ~3.6 mm/hr
     disp_score, vel_score = detect_events(
         disp_corr, vel, roles,
-        disp_threshold_m=0.02,  # 2 cm
-        vel_threshold_m_per_s=1e-6,  # ~3 mm/hr
+        disp_threshold_m=disp_threshold_m,
+        vel_threshold_m_per_s=vel_threshold_m_per_s,
     )
 
     # Generate plots
@@ -200,14 +202,17 @@ def main() -> None:
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
     
     t_hours = t / 3600.0
+    disp_threshold_mm = disp_threshold_m * 1000
+    vel_threshold_mm_per_hr = vel_threshold_m_per_s * 3600 * 1000
+    
     ax1.plot(t_hours, disp_score, 'b-', linewidth=2)
-    ax1.set_ylabel("Displacement score\n(count |d| ≥ 2cm)")
+    ax1.set_ylabel(f"Displacement score\n(count |d| ≥ {disp_threshold_mm:.0f}cm)")
     ax1.set_title("Smartslope Detection Pipeline: Event Scores")
     ax1.grid(True, alpha=0.3)
     
     ax2.plot(t_hours, vel_score, 'r-', linewidth=2)
     ax2.set_xlabel("Time (hours)")
-    ax2.set_ylabel("Velocity score\n(count |v| ≥ 3mm/hr)")
+    ax2.set_ylabel(f"Velocity score\n(count |v| ≥ {vel_threshold_mm_per_hr:.1f}mm/hr)")
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
