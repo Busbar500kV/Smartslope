@@ -111,7 +111,8 @@ def plot_scene_3d(
     # Plot motion vectors for slope targets
     if motion_vectors is not None:
         for i in slope_indices:
-            if not np.allclose(motion_vectors[i], 0):
+            # Check if motion vector is non-zero using norm for efficiency
+            if np.linalg.norm(motion_vectors[i]) > 1e-10:
                 # Scale vector for visibility (50m length)
                 vec_scaled = motion_vectors[i] * 50
                 ax.quiver(reflector_xyz[i, 0], reflector_xyz[i, 1], reflector_xyz[i, 2],
@@ -145,7 +146,7 @@ def plot_scene_3d(
     
     ax.set_xlim(mid_x - max_range, mid_x + max_range)
     ax.set_ylim(mid_y - max_range, mid_y + max_range)
-    ax.set_zlim(0, mid_z + max_range)
+    ax.set_zlim(mid_z - max_range, mid_z + max_range)
     
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -196,7 +197,7 @@ def plot_scene_before_after(
         ax.scatter(*reflector_xyz_displaced[i], c=color, marker=marker, s=100, alpha=1.0)
         
         # Draw displacement vector
-        if not np.allclose(reflector_xyz[i], reflector_xyz_displaced[i]):
+        if np.linalg.norm(reflector_xyz[i] - reflector_xyz_displaced[i]) > 1e-10:
             ax.plot([reflector_xyz[i, 0], reflector_xyz_displaced[i, 0]],
                    [reflector_xyz[i, 1], reflector_xyz_displaced[i, 1]],
                    [reflector_xyz[i, 2], reflector_xyz_displaced[i, 2]],

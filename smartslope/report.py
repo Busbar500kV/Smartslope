@@ -11,6 +11,9 @@ import matplotlib.pyplot as plt
 
 from smartslope.scene import compute_range, compute_incidence_angle, compute_los_vector
 
+# Constants
+MOTION_MODEL_NONE = 'none'
+
 
 def plot_reflector_timeseries(
     t_s: np.ndarray,
@@ -218,9 +221,9 @@ def generate_report(
             
             motion_cfg = refl_cfg.get('motion')
             if motion_cfg is None:
-                motion_model = "none"
+                motion_model = MOTION_MODEL_NONE
             else:
-                motion_model = motion_cfg.get('model', 'none')
+                motion_model = motion_cfg.get('model', MOTION_MODEL_NONE)
             
             f.write(f"| {name} | {role} | ({xyz[0]:.1f}, {xyz[1]:.1f}, {xyz[2]:.1f}) | {height:.1f} | "
                    f"{ranges_m[i]:.1f} | {incidence_angles_deg[i]:.1f} | {amplitude:.2f} | "
@@ -232,7 +235,7 @@ def generate_report(
         f.write("## Motion Models\n\n")
         for refl_cfg in reflectors_cfg:
             motion_cfg = refl_cfg.get('motion')
-            if motion_cfg is not None and motion_cfg.get('model') != 'none':
+            if motion_cfg is not None and motion_cfg.get('model') != MOTION_MODEL_NONE:
                 name = refl_cfg['name']
                 model = motion_cfg['model']
                 f.write(f"### {name}\n\n")

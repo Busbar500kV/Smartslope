@@ -215,7 +215,9 @@ def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
     # Add per-reflector phase noise (scaled by amplitude)
     phi_noisy = np.zeros_like(phi_true)
     for i in range(n_reflectors):
-        noise_std = noise_sigmas[i] / np.sqrt(amplitudes[i])  # Lower SNR for weaker reflectors
+        # Prevent division by zero for weak/zero amplitude reflectors
+        amplitude_safe = max(amplitudes[i], 1e-6)
+        noise_std = noise_sigmas[i] / np.sqrt(amplitude_safe)
         phi_noisy[i] = phi_true[i] + rng.normal(0.0, noise_std, size=n_samples)
     
     # Apply dropouts
@@ -259,6 +261,6 @@ def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
         'phi_unwrapped': phi_unwrapped,
         'mask_valid': mask_valid,
         'drift_rad': drift_rad,
-        'wavelength_m': np.array([wavelength_m], dtype=float),
+        'wavelength_m': np.array([wavelength_m], dtype=float),  # Array for NPZ compatibility
         'radar_xyz_m': radar_xyz,
     }

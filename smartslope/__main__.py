@@ -152,20 +152,24 @@ def main() -> int:
     parser.add_argument(
         "--config",
         type=str,
-        help="Path to JSON config file (for simulate command with 3D mode)"
+        help="Path to JSON config file (for 3D mode: requires --outdir)"
     )
     parser.add_argument(
         "--outdir",
         type=str,
-        help="Output directory (for simulate command with 3D mode)"
+        help="Output directory (for 3D mode: requires --config)"
     )
     
     args = parser.parse_args()
     
     if args.command == "simulate":
-        # Check if using new 3D mode (--config and --outdir)
+        # Check if using new 3D mode (both --config and --outdir required)
         if args.config and args.outdir:
             return simulate_3d_main(args.config, args.outdir)
+        elif args.config or args.outdir:
+            # Error: both flags must be provided together
+            print("Error: 3D mode requires both --config and --outdir flags", file=sys.stderr)
+            return 1
         else:
             # Legacy mode
             simulate_main()
