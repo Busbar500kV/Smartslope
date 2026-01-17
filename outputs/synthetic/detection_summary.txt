@@ -1,0 +1,23 @@
+============================================================
+Smartslope Detection Pipeline Summary
+============================================================
+
+Input: /home/runner/work/Smartslope/Smartslope/data/synthetic/kegalle_demo_run.npz
+Wavelength: 12.50 mm
+Duration: 47.8 hours
+Sample period: 600 seconds
+
+Reflectors:
+  - Reference: 2
+  - Slope: 3
+
+Detection Results:
+  - Max displacement score: 3
+  - Max velocity score: 0
+  - Samples with events (disp): 189
+  - Samples with events (vel): 0
+
+Slope Reflector Statistics:
+  - SLOPE_01: max |d| = 57.60 mm
+  - SLOPE_02: max |d| = 57.78 mm
+  - SLOPE_03: max |d| = 57.70 mm
