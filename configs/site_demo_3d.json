@@ -1,0 +1,110 @@
+{
+  "radar": {
+    "name": "Demo_Radar_01",
+    "position_xyz_m": [0.0, 0.0, 2.0],
+    "frequency_hz": 24000000000.0,
+    "wavelength_m": 0.0125
+  },
+  "environment": {
+    "duration_s": 172800,
+    "dt_s": 600
+  },
+  "reflectors": [
+    {
+      "name": "REF_A",
+      "role": "ref",
+      "position_xyz_m": [200.0, -50.0, 10.0],
+      "height_m": 10.0,
+      "amplitude": 1.0,
+      "noise_phase_sigma_rad": 0.08,
+      "dropout_prob": 0.01,
+      "motion": null
+    },
+    {
+      "name": "REF_B",
+      "role": "ref",
+      "position_xyz_m": [210.0, 40.0, 12.0],
+      "height_m": 12.0,
+      "amplitude": 1.2,
+      "noise_phase_sigma_rad": 0.07,
+      "dropout_prob": 0.01,
+      "motion": null
+    },
+    {
+      "name": "SLOPE_01",
+      "role": "slope",
+      "position_xyz_m": [1000.0, -80.0, 60.0],
+      "height_m": 60.0,
+      "amplitude": 0.9,
+      "noise_phase_sigma_rad": 0.10,
+      "dropout_prob": 0.02,
+      "motion": {
+        "model": "creep_plus_event",
+        "direction_xyz_unit": [0.98, 0.0, -0.2],
+        "creep_rate_mm_per_hr": 1.25,
+        "event": {
+          "enabled": true,
+          "t0_s": 86400,
+          "rise_s": 7200,
+          "slip_mm": 50.0,
+          "shape": "sigmoid"
+        }
+      }
+    },
+    {
+      "name": "SLOPE_02",
+      "role": "slope",
+      "position_xyz_m": [1020.0, -10.0, 55.0],
+      "height_m": 55.0,
+      "amplitude": 0.8,
+      "noise_phase_sigma_rad": 0.12,
+      "dropout_prob": 0.03,
+      "motion": {
+        "model": "creep_plus_event",
+        "direction_xyz_unit": [0.98, 0.0, -0.2],
+        "creep_rate_mm_per_hr": 1.25,
+        "event": {
+          "enabled": true,
+          "t0_s": 86400,
+          "rise_s": 7200,
+          "slip_mm": 50.0,
+          "shape": "sigmoid"
+        }
+      }
+    },
+    {
+      "name": "SLOPE_03",
+      "role": "slope",
+      "position_xyz_m": [990.0, 60.0, 50.0],
+      "height_m": 50.0,
+      "amplitude": 0.85,
+      "noise_phase_sigma_rad": 0.11,
+      "dropout_prob": 0.02,
+      "motion": {
+        "model": "creep",
+        "direction_xyz_unit": [0.98, 0.0, -0.2],
+        "creep_rate_mm_per_hr": 0.5,
+        "event": {
+          "enabled": false,
+          "t0_s": 0,
+          "rise_s": 0,
+          "slip_mm": 0.0,
+          "shape": "sigmoid"
+        }
+      }
+    }
+  ],
+  "drift_model": {
+    "enabled": true,
+    "model": "random_walk",
+    "parameters": {
+      "sigma_rad_per_sqrt_s": 0.00002
+    }
+  },
+  "output": {
+    "max_reflector_plots": 12,
+    "before_after_time_s": "end",
+    "write_npz": true,
+    "npz_path": "data/synthetic/site_demo_3d.npz"
+  }
+}
