@@ -3,3 +3,9 @@ __pycache__/
 .venv/
 .ipynb_checkpoints/
 .DS_Store
+
+# Data and outputs (not committed by default)
+data/*
+!data/.gitkeep
+outputs/*
+!outputs/.gitkeep
