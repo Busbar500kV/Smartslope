@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 .ipynb_checkpoints/
 .DS_Store
+*.egg-info/
 
 # Data and outputs (not committed by default)
 data/*
