@@ -1,0 +1,18 @@
+{
+  "run_id": "run_20260117_231638",
+  "timestamp": "2026-01-17T23:16:44.157180",
+  "git_commit_hash": "a0938e4fbed229968edc0d5e1d1081285bbd0b73",
+  "git_branch": "main",
+  "files_published": [
+    "runs/run_20260117_231638/scene_3d.png",
+    "runs/run_20260117_231638/timeseries_SLOPE_01.png",
+    "runs/run_20260117_231638/timeseries_grid.png",
+    "runs/run_20260117_231638/timeseries_SLOPE_03.png",
+    "runs/run_20260117_231638/timeseries_REF_B.png",
+    "runs/run_20260117_231638/timeseries_REF_A.png",
+    "runs/run_20260117_231638/timeseries_SLOPE_02.png",
+    "runs/run_20260117_231638/scene_3d_before_after.png",
+    "runs/run_20260117_231638/manifest.json"
+  ],
+  "notes": ""
+}
