@@ -66,7 +66,7 @@ bash scripts/smoke_run.sh --publish --force
 Results are written to `outputs/run_<timestamp>/`:
 - `kegalle_demo_score.png` - Coherence score plot
 - `kegalle_demo_summary.txt` - Summary statistics
-- `run_<timestamp>.zip` - **ZIP bundle of all outputs** (for easy download/sharing)
+- `run_<timestamp>.zip` - **ZIP bundle of all outputs** (e.g., `run_20260117_123456.zip` for easy download/sharing)
 
 For 3D runs, additional files are generated:
 - `scene_3d.png` - 3D installation geometry visualization

@@ -348,7 +348,8 @@ def main() -> int:
     
     # Commit and push
     print("\n--- Committing and pushing ---")
-    if not git_commit_and_push(args.run_id, artifacts_dir, dry_run=args.dry_run):
+    success = git_commit_and_push(args.run_id, artifacts_dir, dry_run=args.dry_run)
+    if not success:
         return 1
     
     print("\n" + "=" * 60)
