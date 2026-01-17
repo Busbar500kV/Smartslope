@@ -7,6 +7,18 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Parse arguments
+PUBLISH_FLAGS=()
+for arg in "$@"; do
+    case $arg in
+        --publish|--force)
+            PUBLISH_FLAGS+=("$arg")
+            ;;
+        *)
+            ;;
+    esac
+done
+
 echo "========================================="
 echo "  Smartslope Smoke Run"
 echo "========================================="
@@ -27,7 +39,11 @@ source "$VENV_DIR/bin/activate"
 # Step 3: Run the pipeline
 echo ""
 echo "Step 3: Running pipeline..."
-bash "$REPO_ROOT/scripts/run_pipeline.sh"
+if [ ${#PUBLISH_FLAGS[@]} -gt 0 ]; then
+    bash "$REPO_ROOT/scripts/run_pipeline.sh" "${PUBLISH_FLAGS[@]}"
+else
+    bash "$REPO_ROOT/scripts/run_pipeline.sh"
+fi
 
 echo ""
 echo "========================================="

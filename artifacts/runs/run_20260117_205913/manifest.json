@@ -1,0 +1,11 @@
+{
+  "run_id": "run_20260117_205913",
+  "timestamp": "2026-01-17T20:59:13.754059",
+  "git_commit_hash": "e85da6d0e3643d016a489fd1946937f364d97442",
+  "git_branch": "copilot/add-curated-artifact-push",
+  "files_published": [
+    "runs/run_20260117_205913/kegalle_demo_score.png",
+    "runs/run_20260117_205913/kegalle_demo_summary.txt"
+  ],
+  "notes": ""
+}

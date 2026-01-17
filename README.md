@@ -24,6 +24,43 @@ This will:
 4. Run baseline detection
 5. Write outputs to `outputs/run_<timestamp>/`
 
+### Publishing Artifacts to GitHub
+
+By default, outputs are written to `outputs/` which is git-ignored. To publish curated artifacts to GitHub for traceability:
+
+```bash
+# Run smoke test and publish artifacts
+bash scripts/smoke_run.sh --publish
+
+# Or run pipeline directly with publish
+source .venv/bin/activate
+bash scripts/run_pipeline.sh --publish
+```
+
+The `--publish` flag will:
+- Copy selected artifacts (PNG, TXT, JSON) to `artifacts/runs/<run_id>/`
+- Create a manifest file with run metadata
+- Update the global index at `artifacts/index.json`
+- Commit and push to GitHub (only on main branch with clean working tree)
+
+**Safety checks:**
+- Requires clean git working tree (no uncommitted changes)
+- Requires main branch (or use `--force` to override)
+- Only commits small files (PNG plots, TXT summaries, JSON metadata)
+- Does NOT commit large binary data (NPZ files remain in git-ignored `data/`)
+
+**Examples:**
+```bash
+# Default: no publish (outputs remain git-ignored)
+bash scripts/smoke_run.sh
+
+# Publish to GitHub
+bash scripts/smoke_run.sh --publish
+
+# Force publish from non-main branch (use with caution)
+bash scripts/smoke_run.sh --publish --force
+```
+
 ### Output Location
 
 Results are written to `outputs/run_<timestamp>/`:
@@ -61,3 +98,4 @@ smartslope pipeline  # Run both in sequence
 - `scripts/` : Shell scripts for setup and running
 - `data/` : generated synthetic datasets (kept small, git-ignored except .gitkeep)
 - `outputs/` : plots + reports (git-ignored except .gitkeep)
+- `artifacts/` : curated published artifacts (tracked in git, created when using `--publish`)
