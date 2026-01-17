@@ -98,3 +98,4 @@ smartslope pipeline  # Run both in sequence
 - `scripts/` : Shell scripts for setup and running
 - `data/` : generated synthetic datasets (kept small, git-ignored except .gitkeep)
 - `outputs/` : plots + reports (git-ignored except .gitkeep)
+- `artifacts/` : curated published artifacts (tracked in git, created when using `--publish`)

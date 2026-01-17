@@ -8,11 +8,11 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
 # Parse arguments
-PUBLISH_FLAG=""
+PUBLISH_FLAGS=()
 for arg in "$@"; do
     case $arg in
         --publish|--force)
-            PUBLISH_FLAG="$PUBLISH_FLAG $arg"
+            PUBLISH_FLAGS+=("$arg")
             ;;
         *)
             ;;
@@ -39,7 +39,11 @@ source "$VENV_DIR/bin/activate"
 # Step 3: Run the pipeline
 echo ""
 echo "Step 3: Running pipeline..."
-bash "$REPO_ROOT/scripts/run_pipeline.sh" $PUBLISH_FLAG
+if [ ${#PUBLISH_FLAGS[@]} -gt 0 ]; then
+    bash "$REPO_ROOT/scripts/run_pipeline.sh" "${PUBLISH_FLAGS[@]}"
+else
+    bash "$REPO_ROOT/scripts/run_pipeline.sh"
+fi
 
 echo ""
 echo "========================================="

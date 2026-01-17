@@ -14,11 +14,9 @@ for arg in "$@"; do
     case $arg in
         --publish)
             PUBLISH=true
-            shift
             ;;
         --force)
             FORCE=true
-            shift
             ;;
         *)
             ;;
@@ -66,11 +64,11 @@ ls -lh "outputs/$RUN_ID/" 2>/dev/null || echo "(no files generated)"
 if [ "$PUBLISH" = true ]; then
     echo ""
     echo "=== Publishing artifacts ==="
-    FORCE_FLAG=""
     if [ "$FORCE" = true ]; then
-        FORCE_FLAG="--force"
+        python3 "$REPO_ROOT/scripts/publish_run.py" "$RUN_ID" --force
+    else
+        python3 "$REPO_ROOT/scripts/publish_run.py" "$RUN_ID"
     fi
-    python3 "$REPO_ROOT/scripts/publish_run.py" "$RUN_ID" $FORCE_FLAG
     PUBLISH_EXIT=$?
     if [ $PUBLISH_EXIT -ne 0 ]; then
         echo "✗ Publish failed!"
