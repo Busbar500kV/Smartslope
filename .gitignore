@@ -3,3 +3,13 @@ __pycache__/
 .venv/
 .ipynb_checkpoints/
 .DS_Store
+# Data and output directories (keep .gitkeep only)
+data/*
+!data/.gitkeep
+outputs/*
+!outputs/.gitkeep
+
+# Build artifacts
+*.egg-info/
+dist/
+build/
