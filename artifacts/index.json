@@ -1,6 +1,13 @@
 {
   "published_runs": [
     {
+      "run_id": "run_20260117_205448",
+      "timestamp": "2026-01-17T20:54:49.446412",
+      "git_commit_hash": "fed3cafc7164e0b9e6860869e8e2dba71c15c15b",
+      "git_branch": "copilot/add-curated-artifact-push",
+      "file_count": 2
+    },
+    {
       "run_id": "run_20260117_205328",
       "timestamp": "2026-01-17T20:54:09.742008",
       "git_commit_hash": "759cb8a5f7ea44f9fa78f4279311eca1d0490cda",
