@@ -60,6 +60,11 @@ if [ "$USE_3D" = true ]; then
     echo ""
     echo "Output files:"
     ls -lh "outputs/$RUN_ID/" 2>/dev/null || echo "(no files generated)"
+    
+    # Bundle outputs into ZIP
+    echo ""
+    echo "=== Creating ZIP bundle ==="
+    python3 "$REPO_ROOT/scripts/bundle_run.py" --run-dir "outputs/$RUN_ID"
 else
     echo ""
     echo "=== Running Smartslope pipeline ==="
@@ -86,6 +91,11 @@ else
     echo ""
     echo "Output files:"
     ls -lh "outputs/$RUN_ID/" 2>/dev/null || echo "(no files generated)"
+    
+    # Bundle outputs into ZIP
+    echo ""
+    echo "=== Creating ZIP bundle ==="
+    python3 "$REPO_ROOT/scripts/bundle_run.py" --run-dir "outputs/$RUN_ID"
 fi
 
 # Publish artifacts if requested

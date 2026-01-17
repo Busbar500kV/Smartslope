@@ -66,8 +66,34 @@ bash scripts/smoke_run.sh --publish --force
 Results are written to `outputs/run_<timestamp>/`:
 - `kegalle_demo_score.png` - Coherence score plot
 - `kegalle_demo_summary.txt` - Summary statistics
+- `run_<timestamp>.zip` - **ZIP bundle of all outputs** (for easy download/sharing)
+
+For 3D runs, additional files are generated:
+- `scene_3d.png` - 3D installation geometry visualization
+- `scene_3d_before_after.png` - Before/after positions
+- `timeseries_<name>.png` - Detailed time-series per reflector
+- `timeseries_grid.png` - Compact overview of all reflectors
+- `report.md` - Human-readable report
+- `manifest.json` - Machine-readable metadata
 
 Generated synthetic data is stored in `data/synthetic/`.
+
+### ZIP Bundle Workflow (iPhone/Mobile Friendly)
+
+Each run automatically creates a ZIP bundle at `outputs/run_<timestamp>/run_<timestamp>.zip` containing all outputs (PNG, TXT, JSON, MD files). This makes it easy to:
+1. **Download from Busbar via SCP:**
+   ```bash
+   scp busbar:~/Smartslope/outputs/run_20260117_123456/run_20260117_123456.zip ~/Downloads/
+   ```
+
+2. **Download from GitHub artifacts** (when using `--publish`):
+   - Navigate to `artifacts/runs/<run_id>/` in GitHub
+   - Download the ZIP file
+   - On iPhone: Open in Files app and share to ChatGPT or other apps
+
+3. **Share to ChatGPT or other tools** on iPhone for analysis/review
+
+**Note:** By default, `.npz` files (large binary datasets) are excluded from the ZIP to keep file sizes small. Use `--include-npz` with the bundle script if you need them.
 
 ### Manual Usage
 
@@ -86,6 +112,21 @@ smartslope pipeline  # Run both in sequence
 - All code, configs, synthetic datasets, and outputs live in this repo.
 - Run generation + detection on Busbar via SSH.
 - Commit generated artifacts back to GitHub.
+
+### Manual ZIP Bundling
+
+If you need to manually create a ZIP bundle for a run:
+
+```bash
+# Bundle a specific run (excludes .npz by default)
+python3 scripts/bundle_run.py --run-dir outputs/run_20260117_123456
+
+# Include NPZ files (large binary data)
+python3 scripts/bundle_run.py --run-dir outputs/run_20260117_123456 --include-npz
+
+# Custom ZIP name
+python3 scripts/bundle_run.py --run-dir outputs/run_20260117_123456 --zip-name my_bundle.zip
+```
 
 ## Current scope
 - Synthetic generator for coherent phase time-series per reflector (slope + reference targets)

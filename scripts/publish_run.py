@@ -123,6 +123,20 @@ def copy_artifacts(run_id: str, outputs_dir: Path, artifacts_dir: Path) -> List[
         copied_files.append(f"runs/{run_id}/{json_file.name}")
         print(f"  Copied: {json_file.name}")
     
+    # Copy MD files (reports)
+    for md_file in run_output_dir.glob("*.md"):
+        dest = run_artifacts_dir / md_file.name
+        shutil.copy2(md_file, dest)
+        copied_files.append(f"runs/{run_id}/{md_file.name}")
+        print(f"  Copied: {md_file.name}")
+    
+    # Copy ZIP bundle if it exists
+    for zip_file in run_output_dir.glob("*.zip"):
+        dest = run_artifacts_dir / zip_file.name
+        shutil.copy2(zip_file, dest)
+        copied_files.append(f"runs/{run_id}/{zip_file.name}")
+        print(f"  Copied: {zip_file.name}")
+    
     if not copied_files:
         raise ValueError(f"No artifacts found to copy in {run_output_dir}")
     
@@ -340,6 +354,10 @@ def main() -> int:
     print("\n" + "=" * 60)
     print("  ✓ Publish complete!")
     print("=" * 60)
+    print(f"Run ID: {args.run_id}")
+    print(f"Files copied: {len(copied_files)}")
+    print(f"Commit hash: {get_git_commit_hash()[:8]}")
+    print(f"Branch: {get_git_branch()}")
     
     return 0
 
