@@ -10,6 +10,7 @@ cd "$REPO_ROOT"
 # Parse arguments
 PUBLISH=false
 FORCE=false
+USE_3D=false
 for arg in "$@"; do
     case $arg in
         --publish)
@@ -17,6 +18,9 @@ for arg in "$@"; do
             ;;
         --force)
             FORCE=true
+            ;;
+        --3d)
+            USE_3D=true
             ;;
         *)
             ;;
@@ -34,31 +38,55 @@ echo "Run ID: $RUN_ID"
 mkdir -p data/synthetic
 mkdir -p outputs/"$RUN_ID"
 
-echo ""
-echo "=== Running Smartslope pipeline ==="
-echo "This will:"
-echo "  1. Generate synthetic coherent phase data"
-echo "  2. Run baseline detection"
-echo "  3. Write outputs under outputs/$RUN_ID/"
-echo ""
-
-# Run the pipeline using the smartslope CLI
-smartslope pipeline
-
-# Move outputs to run-specific directory
-if [ -d "outputs/synthetic" ]; then
+if [ "$USE_3D" = true ]; then
     echo ""
-    echo "Moving outputs to outputs/$RUN_ID/..."
-    mv outputs/synthetic/* "outputs/$RUN_ID/" 2>/dev/null || true
-    rmdir outputs/synthetic 2>/dev/null || true
+    echo "=== Running Smartslope 3D pipeline ==="
+    echo "This will:"
+    echo "  1. Generate 3D geometry-aware synthetic coherent phase data"
+    echo "  2. Create scene visualizations and time-series plots"
+    echo "  3. Generate human-readable reports"
+    echo "  4. Write outputs under outputs/$RUN_ID/"
+    echo ""
+    
+    # Run 3D simulation with site_demo_3d config
+    CONFIG_PATH="$REPO_ROOT/configs/site_demo_3d.json"
+    OUTPUT_DIR="$REPO_ROOT/outputs/$RUN_ID"
+    
+    smartslope simulate --config "$CONFIG_PATH" --outdir "$OUTPUT_DIR"
+    
+    echo ""
+    echo "=== 3D Pipeline complete ==="
+    echo "Outputs written to: outputs/$RUN_ID/"
+    echo ""
+    echo "Output files:"
+    ls -lh "outputs/$RUN_ID/" 2>/dev/null || echo "(no files generated)"
+else
+    echo ""
+    echo "=== Running Smartslope pipeline ==="
+    echo "This will:"
+    echo "  1. Generate synthetic coherent phase data"
+    echo "  2. Run baseline detection"
+    echo "  3. Write outputs under outputs/$RUN_ID/"
+    echo ""
+    
+    # Run the pipeline using the smartslope CLI
+    smartslope pipeline
+    
+    # Move outputs to run-specific directory
+    if [ -d "outputs/synthetic" ]; then
+        echo ""
+        echo "Moving outputs to outputs/$RUN_ID/..."
+        mv outputs/synthetic/* "outputs/$RUN_ID/" 2>/dev/null || true
+        rmdir outputs/synthetic 2>/dev/null || true
+    fi
+    
+    echo ""
+    echo "=== Pipeline complete ==="
+    echo "Outputs written to: outputs/$RUN_ID/"
+    echo ""
+    echo "Output files:"
+    ls -lh "outputs/$RUN_ID/" 2>/dev/null || echo "(no files generated)"
 fi
-
-echo ""
-echo "=== Pipeline complete ==="
-echo "Outputs written to: outputs/$RUN_ID/"
-echo ""
-echo "Output files:"
-ls -lh "outputs/$RUN_ID/" 2>/dev/null || echo "(no files generated)"
 
 # Publish artifacts if requested
 if [ "$PUBLISH" = true ]; then

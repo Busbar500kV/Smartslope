@@ -9,10 +9,14 @@ cd "$REPO_ROOT"
 
 # Parse arguments
 PUBLISH_FLAGS=()
+USE_3D=false
 for arg in "$@"; do
     case $arg in
         --publish|--force)
             PUBLISH_FLAGS+=("$arg")
+            ;;
+        --3d)
+            USE_3D=true
             ;;
         *)
             ;;
@@ -23,6 +27,9 @@ echo "========================================="
 echo "  Smartslope Smoke Run"
 echo "========================================="
 echo "Repo root: $REPO_ROOT"
+if [ "$USE_3D" = true ]; then
+    echo "Mode: 3D Installation Model"
+fi
 echo ""
 
 # Step 1: Setup virtual environment and install package
@@ -39,10 +46,18 @@ source "$VENV_DIR/bin/activate"
 # Step 3: Run the pipeline
 echo ""
 echo "Step 3: Running pipeline..."
-if [ ${#PUBLISH_FLAGS[@]} -gt 0 ]; then
-    bash "$REPO_ROOT/scripts/run_pipeline.sh" "${PUBLISH_FLAGS[@]}"
+if [ "$USE_3D" = true ]; then
+    if [ ${#PUBLISH_FLAGS[@]} -gt 0 ]; then
+        bash "$REPO_ROOT/scripts/run_pipeline.sh" --3d "${PUBLISH_FLAGS[@]}"
+    else
+        bash "$REPO_ROOT/scripts/run_pipeline.sh" --3d
+    fi
 else
-    bash "$REPO_ROOT/scripts/run_pipeline.sh"
+    if [ ${#PUBLISH_FLAGS[@]} -gt 0 ]; then
+        bash "$REPO_ROOT/scripts/run_pipeline.sh" "${PUBLISH_FLAGS[@]}"
+    else
+        bash "$REPO_ROOT/scripts/run_pipeline.sh"
+    fi
 fi
 
 echo ""
