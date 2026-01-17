@@ -7,6 +7,24 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Parse arguments
+PUBLISH=false
+FORCE=false
+for arg in "$@"; do
+    case $arg in
+        --publish)
+            PUBLISH=true
+            shift
+            ;;
+        --force)
+            FORCE=true
+            shift
+            ;;
+        *)
+            ;;
+    esac
+done
+
 echo "=== Smartslope: run_pipeline.sh ==="
 echo "Repo root: $REPO_ROOT"
 
@@ -43,3 +61,19 @@ echo "Outputs written to: outputs/$RUN_ID/"
 echo ""
 echo "Output files:"
 ls -lh "outputs/$RUN_ID/" 2>/dev/null || echo "(no files generated)"
+
+# Publish artifacts if requested
+if [ "$PUBLISH" = true ]; then
+    echo ""
+    echo "=== Publishing artifacts ==="
+    FORCE_FLAG=""
+    if [ "$FORCE" = true ]; then
+        FORCE_FLAG="--force"
+    fi
+    python3 "$REPO_ROOT/scripts/publish_run.py" "$RUN_ID" $FORCE_FLAG
+    PUBLISH_EXIT=$?
+    if [ $PUBLISH_EXIT -ne 0 ]; then
+        echo "✗ Publish failed!"
+        exit $PUBLISH_EXIT
+    fi
+fi
