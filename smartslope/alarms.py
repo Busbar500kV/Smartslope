@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
+import json
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,6 +27,10 @@ class AlarmEvent:
     threshold: float
     window_start_idx: Optional[int] = None
     window_end_idx: Optional[int] = None
+    state: str = 'ACTIVE'  # ACTIVE, LATCHED, ACKED, CLEAR
+    latched: bool = False
+    acked: bool = False
+    details: Optional[Dict] = field(default_factory=dict)
 
 
 def detect_ref_move_alarms(
@@ -381,6 +386,88 @@ def detect_drift_alarms(
     return alarms, alarm_id_counter
 
 
+def detect_slope_consensus_alarms(
+    data: Dict[str, np.ndarray],
+    config: Dict,
+    slope_alarms: List[AlarmEvent],
+    alarm_id_counter: int
+) -> tuple[List[AlarmEvent], int]:
+    """
+    Detect K-of-N slope consensus alarms (SLOPE_EVENT_SYSTEM).
+    
+    Triggers when K or more slope targets have SLOPE_MOVE alarms within a rolling window.
+    
+    Args:
+        data: Simulation output data
+        config: Configuration dictionary
+        slope_alarms: List of SLOPE_MOVE alarms already detected
+        alarm_id_counter: Current alarm ID counter
+    
+    Returns:
+        (alarms, updated_alarm_id_counter)
+    """
+    alarms = []
+    alarm_cfg = config.get('alarms', {})
+    
+    if not alarm_cfg.get('enable', False):
+        return alarms, alarm_id_counter
+    
+    k_of_n = alarm_cfg.get('slope_k_of_n_consensus', 2)
+    window_samples = alarm_cfg.get('slope_consensus_window_samples', 10)
+    
+    if k_of_n <= 1 or not slope_alarms:
+        return alarms, alarm_id_counter
+    
+    t_iso = data['t_iso']
+    n_samples = len(t_iso)
+    
+    # Group slope alarms by sample index
+    alarms_by_idx = {}
+    for alarm in slope_alarms:
+        idx = alarm.sample_idx
+        if idx not in alarms_by_idx:
+            alarms_by_idx[idx] = []
+        alarms_by_idx[idx].append(alarm)
+    
+    # Check rolling window for K-of-N consensus
+    for t in range(window_samples, n_samples):
+        # Count unique slope targets with alarms in window
+        targets_with_alarms = set()
+        contributing_alarms = []
+        
+        for idx in range(t - window_samples, t + 1):
+            if idx in alarms_by_idx:
+                for alarm in alarms_by_idx[idx]:
+                    targets_with_alarms.add(alarm.target)
+                    contributing_alarms.append(alarm)
+        
+        if len(targets_with_alarms) >= k_of_n:
+            # Check if we already raised consensus alarm recently
+            if alarms and alarms[-1].sample_idx >= t - window_samples:
+                continue
+            
+            target_list = ', '.join(sorted(targets_with_alarms))
+            
+            alarm = AlarmEvent(
+                alarm_id=alarm_id_counter,
+                timestamp_iso=str(t_iso[t]),
+                sample_idx=t,
+                severity='CRITICAL',
+                alarm_code='SLOPE_EVENT_SYSTEM',
+                target='SYSTEM',
+                message=f'Slope consensus: {len(targets_with_alarms)} targets moving ({target_list})',
+                value=float(len(targets_with_alarms)),
+                threshold=float(k_of_n),
+                window_start_idx=t - window_samples,
+                window_end_idx=t,
+                details={'contributing_targets': list(targets_with_alarms)}
+            )
+            alarms.append(alarm)
+            alarm_id_counter += 1
+    
+    return alarms, alarm_id_counter
+
+
 def generate_alarms(data: Dict[str, np.ndarray], config: Dict) -> List[AlarmEvent]:
     """
     Generate all alarms from synthetic data.
@@ -399,7 +486,11 @@ def generate_alarms(data: Dict[str, np.ndarray], config: Dict) -> List[AlarmEven
     alarms, alarm_id = detect_ref_move_alarms(data, config, alarm_id)
     all_alarms.extend(alarms)
     
-    alarms, alarm_id = detect_slope_move_alarms(data, config, alarm_id)
+    slope_alarms, alarm_id = detect_slope_move_alarms(data, config, alarm_id)
+    all_alarms.extend(slope_alarms)
+    
+    # Slope consensus (K-of-N)
+    alarms, alarm_id = detect_slope_consensus_alarms(data, config, slope_alarms, alarm_id)
     all_alarms.extend(alarms)
     
     alarms, alarm_id = detect_high_noise_alarms(data, config, alarm_id)
@@ -429,12 +520,13 @@ def write_alarm_log_csv(alarms: List[AlarmEvent], output_path: Path) -> None:
     
     with open(output_path, 'w') as f:
         # Header
-        f.write('alarm_id,timestamp_iso,sample_idx,severity,alarm_code,target,message,value,threshold\n')
+        f.write('alarm_id,timestamp_iso,sample_idx,severity,alarm_code,target,message,value,threshold,state,latched,acked\n')
         
         # Rows
         for alarm in alarms:
             f.write(f'{alarm.alarm_id},{alarm.timestamp_iso},{alarm.sample_idx},{alarm.severity},'
-                   f'{alarm.alarm_code},{alarm.target},"{alarm.message}",{alarm.value:.6f},{alarm.threshold:.6f}\n')
+                   f'{alarm.alarm_code},{alarm.target},"{alarm.message}",{alarm.value:.6f},{alarm.threshold:.6f},'
+                   f'{alarm.state},{1 if alarm.latched else 0},{1 if alarm.acked else 0}\n')
 
 
 def plot_alarm_timeline(
@@ -533,3 +625,230 @@ def plot_alarm_timeline(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(output_path, dpi=120, bbox_inches='tight')
     plt.close()
+
+
+def load_acknowledgments(ack_path: Path) -> List[Dict]:
+    """
+    Load acknowledgments from JSON file if it exists.
+    
+    Args:
+        ack_path: Path to acknowledgment JSON file
+    
+    Returns:
+        List of acknowledgment dicts, or empty list if file doesn't exist
+    """
+    if not ack_path.exists():
+        return []
+    
+    try:
+        with open(ack_path, 'r') as f:
+            acks = json.load(f)
+            return acks if isinstance(acks, list) else []
+    except (json.JSONDecodeError, IOError):
+        print(f"Warning: Could not read acknowledgment file {ack_path}")
+        return []
+
+
+def generate_ack_template(alarms: List[AlarmEvent], output_path: Path) -> None:
+    """
+    Generate acknowledgment template JSON file with instructions.
+    
+    Args:
+        alarms: List of AlarmEvent objects
+        output_path: Output path for template file
+    """
+    # Find alarms that require acknowledgment (ALARM or CRITICAL)
+    ack_required = [a for a in alarms if a.severity in ['ALARM', 'CRITICAL']]
+    
+    template = {
+        "_instructions": {
+            "description": "Use this file to acknowledge alarms. Copy this template to 'alarm_ack.json' and fill in acknowledgments.",
+            "format": "Each acknowledgment should have: alarm_id (or alarm_code+target), ack_time_iso, ack_by, note",
+            "example": {
+                "alarm_id": 5,
+                "ack_time_iso": "2026-01-18T12:00:00-08:00",
+                "ack_by": "operator_name",
+                "note": "Investigated and confirmed safe"
+            }
+        },
+        "acknowledgments": []
+    }
+    
+    # Add template entries for each alarm requiring ack
+    for alarm in ack_required[:5]:  # Limit to first 5 for template
+        template["acknowledgments"].append({
+            "alarm_id": alarm.alarm_id,
+            "alarm_code": alarm.alarm_code,
+            "target": alarm.target,
+            "ack_time_iso": "",
+            "ack_by": "",
+            "note": ""
+        })
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w') as f:
+        json.dump(template, f, indent=2)
+    
+    print(f"Generated acknowledgment template: {output_path}")
+
+
+def apply_alarm_latching_and_acks(
+    alarms: List[AlarmEvent],
+    config: Dict,
+    data: Dict[str, np.ndarray],
+    ack_file: Optional[Path] = None
+) -> tuple[List[AlarmEvent], Dict]:
+    """
+    Apply alarm latching logic and acknowledgments to alarms.
+    
+    Latching behavior:
+    - Alarms with severity in latch_severities will remain active until acknowledged
+    - State transitions: CLEAR -> ACTIVE -> LATCHED -> ACKED
+    
+    Args:
+        alarms: List of AlarmEvent objects
+        config: Configuration dictionary
+        data: Simulation data (for timestamps)
+        ack_file: Optional path to acknowledgment file
+    
+    Returns:
+        (updated_alarms, alarm_state_summary)
+    """
+    alarm_ops_cfg = config.get('alarm_ops', {})
+    latch_severities = alarm_ops_cfg.get('latch_severities', ['ALARM', 'CRITICAL'])
+    escalation_after_minutes = alarm_ops_cfg.get('escalation_after_minutes', 30)
+    
+    # Load acknowledgments
+    acks = []
+    if ack_file and ack_file.exists():
+        acks = load_acknowledgments(ack_file)
+    
+    # Build ack lookup by alarm_id
+    acks_by_id = {ack.get('alarm_id'): ack for ack in acks if 'alarm_id' in ack}
+    
+    # Build ack lookup by (alarm_code, target)
+    acks_by_code_target = {}
+    for ack in acks:
+        if 'alarm_code' in ack and 'target' in ack:
+            key = (ack['alarm_code'], ack['target'])
+            acks_by_code_target[key] = ack
+    
+    # Process alarms
+    updated_alarms = []
+    active_alarms = []
+    latched_alarms = []
+    acked_alarms = []
+    escalated_alarms = []
+    
+    t_iso = data['t_iso']
+    t_s = data['t_s']
+    
+    for alarm in alarms:
+        # Check if alarm should be latched
+        should_latch = alarm.severity in latch_severities
+        
+        # Check if acknowledged
+        ack = acks_by_id.get(alarm.alarm_id)
+        if not ack:
+            key = (alarm.alarm_code, alarm.target)
+            ack = acks_by_code_target.get(key)
+        
+        if ack:
+            alarm.acked = True
+            alarm.state = 'ACKED'
+            acked_alarms.append(alarm)
+        elif should_latch:
+            alarm.latched = True
+            alarm.state = 'LATCHED'
+            latched_alarms.append(alarm)
+        else:
+            alarm.state = 'ACTIVE'
+            active_alarms.append(alarm)
+        
+        updated_alarms.append(alarm)
+    
+    # Check for escalation (unacknowledged CRITICAL alarms)
+    if escalation_after_minutes > 0:
+        for alarm in latched_alarms:
+            if alarm.severity == 'CRITICAL':
+                # Check time since alarm
+                alarm_time_s = t_s[alarm.sample_idx]
+                last_time_s = t_s[-1]
+                elapsed_minutes = (last_time_s - alarm_time_s) / 60.0
+                
+                if elapsed_minutes > escalation_after_minutes:
+                    escalated_alarms.append(alarm)
+    
+    # Build state summary
+    alarm_state = {
+        'timestamp': str(t_iso[-1]),
+        'total_alarms': len(alarms),
+        'active_alarms': [
+            {
+                'alarm_id': a.alarm_id,
+                'severity': a.severity,
+                'alarm_code': a.alarm_code,
+                'target': a.target,
+                'timestamp_iso': a.timestamp_iso
+            }
+            for a in active_alarms
+        ],
+        'latched_alarms': [
+            {
+                'alarm_id': a.alarm_id,
+                'severity': a.severity,
+                'alarm_code': a.alarm_code,
+                'target': a.target,
+                'timestamp_iso': a.timestamp_iso
+            }
+            for a in latched_alarms
+        ],
+        'acked_alarms': [
+            {
+                'alarm_id': a.alarm_id,
+                'severity': a.severity,
+                'alarm_code': a.alarm_code,
+                'target': a.target,
+                'timestamp_iso': a.timestamp_iso
+            }
+            for a in acked_alarms
+        ],
+        'escalation': {
+            'enabled': escalation_after_minutes > 0,
+            'threshold_minutes': escalation_after_minutes,
+            'escalated_count': len(escalated_alarms),
+            'escalated_alarms': [
+                {
+                    'alarm_id': a.alarm_id,
+                    'alarm_code': a.alarm_code,
+                    'target': a.target
+                }
+                for a in escalated_alarms
+            ]
+        },
+        'counts': {
+            'active': len(active_alarms),
+            'latched': len(latched_alarms),
+            'acked': len(acked_alarms),
+            'critical_unacked': len([a for a in latched_alarms if a.severity == 'CRITICAL']),
+            'alarm_unacked': len([a for a in latched_alarms if a.severity == 'ALARM'])
+        }
+    }
+    
+    return updated_alarms, alarm_state
+
+
+def write_alarm_state_json(alarm_state: Dict, output_path: Path) -> None:
+    """
+    Write alarm state to JSON file.
+    
+    Args:
+        alarm_state: Alarm state dictionary
+        output_path: Output JSON file path
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(output_path, 'w') as f:
+        json.dump(alarm_state, f, indent=2)
+    
+    print(f"Wrote {output_path}")
