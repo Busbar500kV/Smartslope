@@ -254,6 +254,249 @@ def simulate_3d_main(config_path: str, outdir: str) -> int:
     return 0
 
 
+def replay_main(args) -> int:
+    """Run replay pipeline on imported data."""
+    from pathlib import Path
+    from datetime import datetime
+    import json
+    
+    from smartslope.ingest import ingest_npz, ingest_csv_generic, load_mapping_json
+    from smartslope.site import load_site_config
+    from smartslope.geometry_metrics import compute_geometry_metrics, write_geometry_metrics_csv, write_geometry_metrics_json
+    from smartslope.alarms import generate_alarms, write_alarm_log_csv, apply_alarm_latching_and_acks, write_alarm_state_json, generate_ack_template, plot_alarm_timeline
+    from smartslope.scada_export import write_scada_telemetry
+    from smartslope.hmi import render_hmi_dashboard
+    from smartslope.report import generate_results_md, generate_manifest, plot_timeseries_grid
+    from smartslope.site_status import compute_site_status, write_site_status_json
+    
+    # Parse input
+    input_path = Path(args.input)
+    if not input_path.exists():
+        print(f"Error: Input path not found: {input_path}", file=sys.stderr)
+        return 1
+    
+    # Determine input type
+    if input_path.is_file():
+        if input_path.suffix == '.npz':
+            print(f"Loading NPZ: {input_path}")
+            data = ingest_npz(input_path)
+        elif input_path.suffix == '.csv':
+            # CSV requires mapping
+            if not args.mapping:
+                print("Error: CSV input requires --mapping flag", file=sys.stderr)
+                return 1
+            
+            mapping_path = Path(args.mapping)
+            if not mapping_path.exists():
+                print(f"Error: Mapping file not found: {mapping_path}", file=sys.stderr)
+                return 1
+            
+            print(f"Loading CSV: {input_path}")
+            mapping = load_mapping_json(mapping_path)
+            
+            # Load site config if provided
+            site_config = None
+            if args.site:
+                site_config = load_site_config(Path(args.site))
+            
+            data = ingest_csv_generic(input_path, mapping, site_config)
+        else:
+            print(f"Error: Unsupported file type: {input_path.suffix}", file=sys.stderr)
+            return 1
+    else:
+        print(f"Error: Directory input not yet supported: {input_path}", file=sys.stderr)
+        return 1
+    
+    # Create output directory
+    outdir = Path(args.outdir) if args.outdir else Path('outputs') / f'replay_{datetime.now().strftime("%Y%m%d_%H%M%S")}'
+    outdir.mkdir(parents=True, exist_ok=True)
+    run_id = outdir.name
+    
+    print(f"Output directory: {outdir}")
+    
+    # Load site config for analysis
+    config = None
+    if args.site:
+        config = load_site_config(Path(args.site))
+    else:
+        # Create minimal config from data
+        config = {
+            'alarms': {'enable': True},
+            'radar_station': {},
+            'hmi': {'station_name': 'Replay Station', 'site_id': 'REPLAY-001'},
+        }
+    
+    # Generate alarms
+    print("Generating alarms...")
+    alarms = generate_alarms(data, config)
+    print(f"Generated {len(alarms)} alarms")
+    
+    # Apply alarm latching and acknowledgments
+    print("Processing alarm states...")
+    ack_file = outdir / 'alarm_ack.json'
+    alarms, alarm_state = apply_alarm_latching_and_acks(alarms, config, data, ack_file)
+    
+    # Generate outputs
+    generated_files = []
+    
+    # Alarm outputs
+    if not ack_file.exists():
+        ack_template_path = outdir / 'alarm_ack_template.json'
+        generate_ack_template(alarms, ack_template_path)
+        generated_files.append('alarm_ack_template.json')
+    
+    alarm_state_path = outdir / 'alarm_state.json'
+    write_alarm_state_json(alarm_state, alarm_state_path)
+    generated_files.append('alarm_state.json')
+    
+    alarm_log_path = outdir / 'alarm_log.csv'
+    write_alarm_log_csv(alarms, alarm_log_path)
+    generated_files.append('alarm_log.csv')
+    
+    # SCADA telemetry
+    scada_path = outdir / 'scada_telemetry.csv'
+    write_scada_telemetry(data, config, alarms, run_id, scada_path)
+    generated_files.append('scada_telemetry.csv')
+    
+    # Alarm timeline
+    alarm_timeline_path = outdir / 'alarm_timeline.png'
+    plot_alarm_timeline(data, config, alarms, alarm_timeline_path)
+    generated_files.append('alarm_timeline.png')
+    
+    # Timeseries grid (if we have phase data)
+    if 'phi_unwrapped' in data and 'disp_los_m' in data:
+        grid_path = outdir / 'timeseries_grid.png'
+        plot_timeseries_grid(
+            data['t_s'], data['disp_los_m'], data['phi_unwrapped'],
+            data['mask_valid'], data['names'], data['roles'], grid_path
+        )
+        generated_files.append('timeseries_grid.png')
+    
+    # Geometry metrics (if we have positions)
+    geometry_metrics = None
+    if 'radar_xyz_m' in data and 'pos_xyz_m' in data:
+        print("Computing geometry metrics...")
+        wavelength_m = float(data.get('wavelength_m', [0.0125])[0])
+        
+        # Extract motion directions if available (else None)
+        motion_directions = [None] * len(data['names'])
+        
+        geometry_metrics = compute_geometry_metrics(
+            data['radar_xyz_m'], data['pos_xyz_m'],
+            data['names'], data['roles'],
+            motion_directions, wavelength_m, config
+        )
+        
+        geom_csv_path = outdir / 'geometry_metrics.csv'
+        write_geometry_metrics_csv(geometry_metrics, geom_csv_path)
+        generated_files.append('geometry_metrics.csv')
+        
+        geom_json_path = outdir / 'geometry_metrics.json'
+        write_geometry_metrics_json(geometry_metrics, geom_json_path)
+        generated_files.append('geometry_metrics.json')
+    
+    # Site status
+    site_status = compute_site_status(data, config, alarms)
+    site_status_path = outdir / 'site_status.json'
+    write_site_status_json(site_status, site_status_path)
+    generated_files.append('site_status.json')
+    
+    # HMI dashboard
+    hmi_path = outdir / 'hmi_station.png'
+    render_hmi_dashboard(data, config, alarms, run_id, hmi_path, geometry_metrics, alarm_state)
+    generated_files.append('hmi_station.png')
+    
+    # Results.md
+    print("Generating results.md...")
+    generate_results_md(config, data, alarms, outdir, run_id, geometry_metrics, alarm_state)
+    generated_files.append('results.md')
+    
+    # Manifest
+    print("Generating manifest.json...")
+    generate_manifest(config, data, outdir, generated_files)
+    generated_files.append('manifest.json')
+    
+    print(f"\n=== Replay complete ===")
+    print(f"Generated {len(generated_files)} files in {outdir}")
+    
+    # Bundle if requested
+    if args.publish:
+        print("\n=== Creating ZIP bundle ===")
+        import subprocess
+        subprocess.run(['python3', 'scripts/bundle_run.py', '--run-dir', str(outdir)], check=True)
+    
+    return 0
+
+
+def watch_main(args) -> int:
+    """Run file watcher mode (poll-based)."""
+    from pathlib import Path
+    import time
+    import json
+    from datetime import datetime
+    
+    folder = Path(args.folder)
+    if not folder.exists() or not folder.is_dir():
+        print(f"Error: Folder not found: {folder}", file=sys.stderr)
+        return 1
+    
+    pattern = args.pattern or "*.csv"
+    poll_interval = args.poll_interval or 30
+    out_root = Path(args.out_root) if args.out_root else Path('outputs')
+    
+    print(f"=== Smartslope File Watcher ===")
+    print(f"Watching: {folder}")
+    print(f"Pattern: {pattern}")
+    print(f"Poll interval: {poll_interval}s")
+    print(f"Output root: {out_root}")
+    print("\nPress Ctrl+C to stop\n")
+    
+    # Track processed files
+    processed_files = set()
+    
+    try:
+        while True:
+            # Find matching files
+            import glob
+            files = glob.glob(str(folder / pattern))
+            
+            for file_path_str in files:
+                file_path = Path(file_path_str)
+                
+                # Skip if already processed
+                if file_path in processed_files:
+                    continue
+                
+                print(f"[{datetime.now().isoformat()}] New file detected: {file_path.name}")
+                
+                # Process file using replay logic
+                try:
+                    # Build replay args
+                    class ReplayArgs:
+                        def __init__(self):
+                            self.input = str(file_path)
+                            self.mapping = args.mapping
+                            self.site = args.site
+                            self.outdir = None  # Auto-generate
+                            self.publish = False
+                    
+                    replay_args = ReplayArgs()
+                    replay_main(replay_args)
+                    
+                    processed_files.add(file_path)
+                    print(f"[{datetime.now().isoformat()}] Processed: {file_path.name}")
+                
+                except Exception as e:
+                    print(f"[{datetime.now().isoformat()}] Error processing {file_path.name}: {e}")
+            
+            # Sleep until next poll
+            time.sleep(poll_interval)
+    
+    except KeyboardInterrupt:
+        print("\n\nFile watcher stopped.")
+        return 0
+
+
 def main() -> int:
     """Main CLI entrypoint."""
     parser = argparse.ArgumentParser(
@@ -262,7 +505,7 @@ def main() -> int:
     )
     parser.add_argument(
         "command",
-        choices=["simulate", "detect", "pipeline"],
+        choices=["simulate", "detect", "pipeline", "replay", "watch"],
         help="Command to run"
     )
     parser.add_argument(
@@ -274,6 +517,52 @@ def main() -> int:
         "--outdir",
         type=str,
         help="Output directory (for 3D mode: requires --config)"
+    )
+    
+    # Replay-specific arguments
+    parser.add_argument(
+        "--input",
+        type=str,
+        help="Input file or directory for replay mode"
+    )
+    parser.add_argument(
+        "--mapping",
+        type=str,
+        help="Column mapping JSON for CSV input"
+    )
+    parser.add_argument(
+        "--site",
+        type=str,
+        help="Site configuration JSON"
+    )
+    parser.add_argument(
+        "--publish",
+        action="store_true",
+        help="Create ZIP bundle after processing"
+    )
+    
+    # Watch-specific arguments
+    parser.add_argument(
+        "--folder",
+        type=str,
+        help="Folder to watch for new files"
+    )
+    parser.add_argument(
+        "--pattern",
+        type=str,
+        default="*.csv",
+        help="File pattern to match (default: *.csv)"
+    )
+    parser.add_argument(
+        "--poll-interval",
+        type=int,
+        default=30,
+        help="Poll interval in seconds (default: 30)"
+    )
+    parser.add_argument(
+        "--out-root",
+        type=str,
+        help="Root directory for outputs (default: outputs/)"
     )
     
     args = parser.parse_args()
@@ -301,6 +590,16 @@ def main() -> int:
         detect_main()
         print("\n=== Pipeline complete ===")
         return 0
+    elif args.command == "replay":
+        if not args.input:
+            print("Error: replay requires --input flag", file=sys.stderr)
+            return 1
+        return replay_main(args)
+    elif args.command == "watch":
+        if not args.folder:
+            print("Error: watch requires --folder flag", file=sys.stderr)
+            return 1
+        return watch_main(args)
     else:
         print(f"Unknown command: {args.command}", file=sys.stderr)
         return 1

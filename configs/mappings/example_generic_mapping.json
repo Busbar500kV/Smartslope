@@ -1,0 +1,26 @@
+{
+  "description": "Example generic CSV mapping for radar phase data import",
+  "timestamp_column": "timestamp",
+  "timestamp_format": "iso8601",
+  "reflector_columns": {
+    "REF_A": "phase_ref_a_rad",
+    "REF_B": "phase_ref_b_rad",
+    "SLOPE_01": "phase_slope_01_rad",
+    "SLOPE_02": "phase_slope_02_rad",
+    "SLOPE_03": "phase_slope_03_rad"
+  },
+  "reflector_roles": {
+    "REF_A": "ref",
+    "REF_B": "ref",
+    "SLOPE_01": "slope",
+    "SLOPE_02": "slope",
+    "SLOPE_03": "slope"
+  },
+  "validity_columns": {
+    "REF_A": "valid_ref_a",
+    "REF_B": "valid_ref_b",
+    "SLOPE_01": "valid_slope_01",
+    "SLOPE_02": "valid_slope_02",
+    "SLOPE_03": "valid_slope_03"
+  }
+}

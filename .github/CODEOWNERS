@@ -1,0 +1,20 @@
+# Code ownership for Smartslope repository
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owners for everything in the repo
+* @Busbar500kV
+
+# Python package code
+/smartslope/ @Busbar500kV
+
+# Configuration files
+/configs/ @Busbar500kV
+
+# Scripts and automation
+/scripts/ @Busbar500kV
+
+# GitHub Actions workflows
+/.github/ @Busbar500kV
+
+# Documentation
+/README.md @Busbar500kV

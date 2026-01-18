@@ -1,0 +1,183 @@
+{
+  "radars": [
+    {
+      "name": "RADAR_A",
+      "position_xyz_m": [0.0, 0.0, 2.0],
+      "frequency_hz": 24000000000.0,
+      "wavelength_m": 0.0125
+    },
+    {
+      "name": "RADAR_B",
+      "position_xyz_m": [50.0, -30.0, 2.5],
+      "frequency_hz": 24000000000.0,
+      "wavelength_m": 0.0125
+    }
+  ],
+  "environment": {
+    "duration_s": 86400,
+    "dt_s": 600
+  },
+  "reflectors": [
+    {
+      "name": "REF_A",
+      "role": "ref",
+      "position_xyz_m": [200.0, -50.0, 10.0],
+      "height_m": 10.0,
+      "amplitude": 1.0,
+      "noise_phase_sigma_rad": 0.08,
+      "dropout_prob": 0.01,
+      "motion": null,
+      "visible_to": ["RADAR_A", "RADAR_B"]
+    },
+    {
+      "name": "REF_B",
+      "role": "ref",
+      "position_xyz_m": [210.0, 40.0, 12.0],
+      "height_m": 12.0,
+      "amplitude": 1.2,
+      "noise_phase_sigma_rad": 0.07,
+      "dropout_prob": 0.01,
+      "motion": null,
+      "visible_to": ["RADAR_A", "RADAR_B"]
+    },
+    {
+      "name": "SLOPE_01",
+      "role": "slope",
+      "position_xyz_m": [1000.0, -80.0, 60.0],
+      "height_m": 60.0,
+      "amplitude": 0.9,
+      "noise_phase_sigma_rad": 0.10,
+      "dropout_prob": 0.02,
+      "motion": {
+        "model": "creep_plus_event",
+        "direction_xyz_unit": [0.98, 0.0, -0.2],
+        "creep_rate_mm_per_hr": 1.25,
+        "event": {
+          "enabled": true,
+          "t0_s": 43200,
+          "rise_s": 7200,
+          "slip_mm": 50.0,
+          "shape": "sigmoid"
+        }
+      },
+      "visible_to": ["RADAR_A", "RADAR_B"]
+    },
+    {
+      "name": "SLOPE_02",
+      "role": "slope",
+      "position_xyz_m": [1020.0, -10.0, 55.0],
+      "height_m": 55.0,
+      "amplitude": 0.8,
+      "noise_phase_sigma_rad": 0.12,
+      "dropout_prob": 0.03,
+      "motion": {
+        "model": "creep_plus_event",
+        "direction_xyz_unit": [0.98, 0.0, -0.2],
+        "creep_rate_mm_per_hr": 1.25,
+        "event": {
+          "enabled": true,
+          "t0_s": 43200,
+          "rise_s": 7200,
+          "slip_mm": 50.0,
+          "shape": "sigmoid"
+        }
+      },
+      "visible_to": ["RADAR_A", "RADAR_B"]
+    },
+    {
+      "name": "SLOPE_03",
+      "role": "slope",
+      "position_xyz_m": [990.0, 60.0, 50.0],
+      "height_m": 50.0,
+      "amplitude": 0.85,
+      "noise_phase_sigma_rad": 0.11,
+      "dropout_prob": 0.02,
+      "motion": {
+        "model": "creep",
+        "direction_xyz_unit": [0.98, 0.0, -0.2],
+        "creep_rate_mm_per_hr": 0.5,
+        "event": {
+          "enabled": false,
+          "t0_s": 0,
+          "rise_s": 0,
+          "slip_mm": 0.0,
+          "shape": "sigmoid"
+        }
+      },
+      "visible_to": ["RADAR_A"]
+    }
+  ],
+  "drift_model": {
+    "enabled": true,
+    "model": "random_walk",
+    "parameters": {
+      "sigma_rad_per_sqrt_s": 0.00002
+    }
+  },
+  "beam": {
+    "enabled": true,
+    "yaw_deg": 0,
+    "pitch_deg": 5,
+    "beamwidth_deg": 25,
+    "pattern": "gaussian"
+  },
+  "atmosphere": {
+    "enabled": true,
+    "common_ar1_rho": 0.995,
+    "common_sigma_rad": 0.3,
+    "local_sigma_rad": 0.08,
+    "airmass_model": "secant",
+    "airmass_range_scale_m": 1000.0
+  },
+  "multipath": {
+    "enabled": true,
+    "bias_sigma_rad": 0.15,
+    "bias_rho": 0.999
+  },
+  "output": {
+    "max_reflector_plots": 12,
+    "before_after_time_s": "end",
+    "write_npz": true,
+    "npz_path": "data/synthetic/site_demo_multi_radar.npz"
+  },
+  "hmi": {
+    "station_name": "Multi-Radar Demo Site",
+    "site_id": "MR-001",
+    "timezone": "America/Vancouver",
+    "start_time_iso": "2026-01-18T00:00:00-08:00",
+    "operator_note": "Multi-radar redundancy demonstration"
+  },
+  "radar_station": {
+    "frequency_hz": 24000000000.0,
+    "tx_power_dbm": 20,
+    "noise_floor_db": -100,
+    "sample_period_s": 600,
+    "health": {
+      "expected_ref_count": 2,
+      "expected_slope_count": 3
+    }
+  },
+  "alarms": {
+    "enable": true,
+    "ref_move_mm_threshold": 2.0,
+    "ref_move_persistence_samples": 3,
+    "slope_move_mm_threshold": 5.0,
+    "slope_rate_mm_per_hr_threshold": 10.0,
+    "slope_alarm_persistence_samples": 2,
+    "slope_k_of_n_consensus": 2,
+    "slope_consensus_window_samples": 10,
+    "high_noise_phase_sigma_rad_threshold": 0.6,
+    "high_noise_window_samples": 6,
+    "dropout_rate_threshold": 0.25,
+    "dropout_window_samples": 6,
+    "drift_rate_rad_per_hr_threshold": 2.0,
+    "drift_window_samples": 6
+  },
+  "alarm_ops": {
+    "latch_severities": ["ALARM", "CRITICAL"],
+    "escalation_after_minutes": 30
+  },
+  "site_redundancy": {
+    "min_radar_confirmations": 1
+  }
+}
