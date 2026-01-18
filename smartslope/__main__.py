@@ -227,6 +227,14 @@ def simulate_3d_main(config_path: str, outdir: str) -> int:
     plot_alarm_timeline(data, config, alarms, alarm_timeline_path)
     generated_files.append('alarm_timeline.png')
     
+    # Compute and write site status
+    print("Computing site-level status...")
+    from smartslope.site_status import compute_site_status, write_site_status_json
+    site_status = compute_site_status(data, config, alarms)
+    site_status_path = outdir_path / 'site_status.json'
+    write_site_status_json(site_status, site_status_path)
+    generated_files.append('site_status.json')
+    
     # Render HMI dashboard
     print("Generating hmi_station.png...")
     hmi_path = outdir_path / 'hmi_station.png'
