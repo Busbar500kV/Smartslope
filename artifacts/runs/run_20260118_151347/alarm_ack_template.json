@@ -1,0 +1,54 @@
+{
+  "_instructions": {
+    "description": "Use this file to acknowledge alarms. Copy this template to 'alarm_ack.json' and fill in acknowledgments.",
+    "format": "Each acknowledgment should have: alarm_id (or alarm_code+target), ack_time_iso, ack_by, note",
+    "example": {
+      "alarm_id": 5,
+      "ack_time_iso": "2026-01-18T12:00:00-08:00",
+      "ack_by": "operator_name",
+      "note": "Investigated and confirmed safe"
+    }
+  },
+  "acknowledgments": [
+    {
+      "alarm_id": 1,
+      "alarm_code": "REF_MOVE",
+      "target": "REF_A",
+      "ack_time_iso": "",
+      "ack_by": "",
+      "note": ""
+    },
+    {
+      "alarm_id": 2,
+      "alarm_code": "SLOPE_MOVE",
+      "target": "SLOPE_01",
+      "ack_time_iso": "",
+      "ack_by": "",
+      "note": ""
+    },
+    {
+      "alarm_id": 3,
+      "alarm_code": "SLOPE_MOVE",
+      "target": "SLOPE_02",
+      "ack_time_iso": "",
+      "ack_by": "",
+      "note": ""
+    },
+    {
+      "alarm_id": 4,
+      "alarm_code": "SLOPE_EVENT_SYSTEM",
+      "target": "SYSTEM",
+      "ack_time_iso": "",
+      "ack_by": "",
+      "note": ""
+    },
+    {
+      "alarm_id": 13,
+      "alarm_code": "DROPOUT_HIGH",
+      "target": "SYSTEM",
+      "ack_time_iso": "",
+      "ack_by": "",
+      "note": ""
+    }
+  ]
+}
