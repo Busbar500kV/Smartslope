@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -184,6 +184,108 @@ def apply_alarm_injection(
     return disp_mod, noise_mod, dropout_mod
 
 
+def compute_beam_attenuation(
+    radar_xyz: np.ndarray,
+    reflector_xyz: np.ndarray,
+    beam_cfg: Dict
+) -> Tuple[float, float]:
+    """Compute beam pattern attenuation factor for a reflector.
+    
+    Args:
+        radar_xyz: Radar position (3,)
+        reflector_xyz: Reflector position (3,)
+        beam_cfg: Beam configuration with keys:
+            - yaw_deg: Beam yaw angle (degrees, 0=North)
+            - pitch_deg: Beam pitch angle (degrees, 0=horizontal)
+            - beamwidth_deg: 3dB beamwidth (degrees)
+            - pattern: "gaussian" or "cosine"
+    
+    Returns:
+        (attenuation_factor, off_boresight_deg)
+        attenuation_factor: 0.0 to 1.0 (1.0 = on boresight)
+        off_boresight_deg: Off-boresight angle in degrees
+    """
+    # Compute LOS vector
+    los = reflector_xyz - radar_xyz
+    los_range = np.linalg.norm(los)
+    if los_range < 1e-6:
+        return 1.0, 0.0
+    
+    los_unit = los / los_range
+    
+    # Compute beam boresight direction
+    yaw_rad = np.deg2rad(beam_cfg.get('yaw_deg', 0.0))
+    pitch_rad = np.deg2rad(beam_cfg.get('pitch_deg', 0.0))
+    
+    # Boresight unit vector (yaw from North, pitch from horizontal)
+    boresight = np.array([
+        np.sin(yaw_rad) * np.cos(pitch_rad),  # East
+        np.cos(yaw_rad) * np.cos(pitch_rad),  # North
+        np.sin(pitch_rad)                      # Up
+    ])
+    
+    # Off-boresight angle
+    cos_angle = np.dot(los_unit, boresight)
+    cos_angle = np.clip(cos_angle, -1.0, 1.0)
+    off_boresight_rad = np.arccos(cos_angle)
+    off_boresight_deg = np.rad2deg(off_boresight_rad)
+    
+    # Compute attenuation based on pattern
+    beamwidth_deg = beam_cfg.get('beamwidth_deg', 20.0)
+    pattern = beam_cfg.get('pattern', 'gaussian')
+    
+    if pattern == 'gaussian':
+        # Gaussian pattern: exp(-4*ln(2) * (theta/theta_3db)^2)
+        # This gives 0.5 (-3dB) at theta = theta_3db
+        sigma_deg = beamwidth_deg / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+        attenuation = np.exp(-0.5 * (off_boresight_deg / sigma_deg)**2)
+    
+    elif pattern == 'cosine':
+        # Cosine pattern: max(0, cos(theta))^n
+        # where n is chosen to give ~3dB at beamwidth_deg
+        n = np.log(0.5) / np.log(np.cos(np.deg2rad(beamwidth_deg / 2)))
+        attenuation = max(0.0, np.cos(off_boresight_rad))**n
+    
+    else:
+        # Unknown pattern - assume uniform
+        attenuation = 1.0
+    
+    return float(attenuation), float(off_boresight_deg)
+
+
+def apply_multipath_bias(
+    n_reflectors: int,
+    n_times: int,
+    multipath_cfg: Dict,
+    rng: np.random.Generator
+) -> np.ndarray:
+    """Generate slowly varying multipath phase bias per reflector.
+    
+    Args:
+        n_reflectors: Number of reflectors
+        n_times: Number of time samples
+        multipath_cfg: Configuration with keys:
+            - bias_sigma_rad: Standard deviation of bias
+            - bias_rho: AR(1) coefficient (0.999 = very slow)
+    
+    Returns:
+        Phase bias array (n_reflectors, n_times)
+    """
+    bias_sigma = multipath_cfg.get('bias_sigma_rad', 0.2)
+    bias_rho = multipath_cfg.get('bias_rho', 0.999)
+    
+    # Generate AR(1) process for each reflector
+    bias = np.zeros((n_reflectors, n_times))
+    innovation_sigma = bias_sigma * np.sqrt(1 - bias_rho**2)
+    
+    for i in range(n_reflectors):
+        bias[i, 0] = rng.normal(0.0, bias_sigma)
+        for t in range(1, n_times):
+            bias[i, t] = bias_rho * bias[i, t-1] + innovation_sigma * rng.normal()
+    
+    return bias
+
+
 def generate_timestamps(config: Dict, t_s: np.ndarray) -> tuple[list[str], np.ndarray]:
     """
     Generate ISO8601 timestamp strings and unix timestamps.
@@ -312,6 +414,123 @@ def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
         config, t, names, disp_true_xyz, noise_sigmas, dropout_probs, rng
     )
     
+    # === NEW PHYSICS FEATURES ===
+    
+    # A1: DEM/Terrain support
+    terrain_cfg = config.get('terrain', {})
+    dem = None
+    height_above_ground = np.full(n_reflectors, np.nan)
+    occluded_fraction = np.zeros(n_reflectors)
+    
+    if terrain_cfg.get('enabled', False):
+        print("Processing terrain/DEM...")
+        from smartslope.dem import load_dem_npz, compute_height_above_ground, check_los_occlusion
+        
+        dem_path = terrain_cfg.get('dem_npz_path')
+        if dem_path:
+            from pathlib import Path as PathLib
+            dem_path_obj = PathLib(dem_path)
+            if not dem_path_obj.is_absolute():
+                repo_root = PathLib(__file__).resolve().parents[1]
+                dem_path_obj = repo_root / dem_path
+            
+            try:
+                dem = load_dem_npz(dem_path_obj)
+                
+                # Compute height above ground for each reflector
+                for i in range(n_reflectors):
+                    height_above_ground[i] = compute_height_above_ground(dem, pos_xyz[i])
+                
+                # Check LOS occlusion
+                for i in range(n_reflectors):
+                    is_occluded, frac = check_los_occlusion(dem, radar_xyz, pos_xyz[i])
+                    occluded_fraction[i] = frac
+                    
+                    # If occluded, reduce amplitude or mask out
+                    if is_occluded and terrain_cfg.get('apply_occlusion_masking', True):
+                        # Reduce validity based on occlusion fraction
+                        mask_valid[i, :] = (rng.random(n_samples) > frac).astype(np.uint8)
+                
+                print(f"  DEM loaded: {dem_path}")
+                print(f"  Height above ground range: {np.nanmin(height_above_ground):.1f} to {np.nanmax(height_above_ground):.1f} m")
+                print(f"  Max occlusion fraction: {np.max(occluded_fraction):.2%}")
+            
+            except Exception as e:
+                print(f"  Warning: Failed to load DEM: {e}")
+    
+    # A2: Atmospheric phase screen
+    atm_cfg = config.get('atmosphere', {})
+    phi_atm = np.zeros((n_reflectors, n_samples))
+    atm_metric_rad = np.zeros(n_samples)
+    
+    if atm_cfg.get('enabled', False):
+        print("Generating atmospheric phase screen...")
+        from smartslope.atmosphere import (
+            generate_atmospheric_phase,
+            compute_airmass_factor,
+            apply_airmass_scaling
+        )
+        
+        # Generate base atmospheric phase
+        atm_data = generate_atmospheric_phase(
+            n_reflectors, n_samples, dt_s, atm_cfg, seed=seed+1
+        )
+        
+        # Compute airmass factors
+        airmass_model = atm_cfg.get('airmass_model', 'secant')
+        range_scale = atm_cfg.get('airmass_range_scale_m', 1000.0)
+        airmass_factors = np.array([
+            compute_airmass_factor(radar_xyz, pos_xyz[i], airmass_model, range_scale)
+            for i in range(n_reflectors)
+        ])
+        
+        # Apply airmass scaling
+        phi_atm = apply_airmass_scaling(
+            atm_data['phi_atm_rad'],
+            atm_data['common_phase_rad'],
+            atm_data['local_phase_rad'],
+            airmass_factors
+        )
+        
+        atm_metric_rad = atm_data['atm_metric_rad']
+        
+        print(f"  Atmospheric phase: common RMS = {np.std(atm_data['common_phase_rad']):.3f} rad")
+        print(f"  Airmass factors: {np.min(airmass_factors):.2f} to {np.max(airmass_factors):.2f}")
+    
+    # A3: Beam pattern + RCS proxy
+    beam_cfg = config.get('beam', {})
+    snr_proxy = np.ones(n_reflectors)  # 1.0 = nominal
+    beam_attenuation = np.ones(n_reflectors)
+    
+    if beam_cfg.get('enabled', False):
+        print("Computing beam pattern attenuation...")
+        
+        for i in range(n_reflectors):
+            atten, off_boresight = compute_beam_attenuation(radar_xyz, pos_xyz[i], beam_cfg)
+            beam_attenuation[i] = atten
+            snr_proxy[i] = atten  # Simplified: SNR proxy = beam attenuation
+            
+            # Map attenuation to increased phase noise
+            # Lower attenuation → higher noise
+            # noise_increase = 1 / sqrt(attenuation) to model SNR
+            if atten > 0.1:
+                noise_factor = 1.0 / np.sqrt(atten)
+                noise_sigmas_per_t[i, :] *= noise_factor
+        
+        print(f"  Beam attenuation range: {np.min(beam_attenuation):.3f} to {np.max(beam_attenuation):.3f}")
+        print(f"  SNR proxy range: {np.min(snr_proxy):.3f} to {np.max(snr_proxy):.3f}")
+    
+    # A4: Multipath bias
+    multipath_cfg = config.get('multipath', {})
+    phi_multipath = np.zeros((n_reflectors, n_samples))
+    
+    if multipath_cfg.get('enabled', False):
+        print("Generating multipath phase bias...")
+        phi_multipath = apply_multipath_bias(n_reflectors, n_samples, multipath_cfg, rng)
+        print(f"  Multipath bias RMS: {np.std(phi_multipath):.3f} rad")
+    
+    # === END NEW PHYSICS FEATURES ===
+    
     # Project 3D displacement onto LOS to get LOS displacement
     disp_los = np.zeros((n_reflectors, n_samples), dtype=float)
     for i in range(n_reflectors):
@@ -339,6 +558,12 @@ def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
     
     # Add drift and noise to phase
     phi_true = phi_motion + drift_rad[None, :]
+    
+    # Add atmospheric phase
+    phi_true += phi_atm
+    
+    # Add multipath bias
+    phi_true += phi_multipath
     
     # Add per-reflector phase noise (scaled by amplitude, with injection)
     phi_noisy = np.zeros_like(phi_true)
@@ -384,7 +609,8 @@ def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
     print("Generating timestamps...")
     t_iso, t_unix_s = generate_timestamps(config, t)
     
-    return {
+    # Build return dictionary
+    result = {
         't_s': t,
         't_iso': np.array(t_iso, dtype=object),  # Array of strings
         't_unix_s': t_unix_s,
@@ -400,3 +626,17 @@ def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
         'wavelength_m': np.array([wavelength_m], dtype=float),  # Array for NPZ compatibility
         'radar_xyz_m': radar_xyz,
     }
+    
+    # Add new physics outputs
+    if atm_cfg.get('enabled', False):
+        result['atm_metric_rad'] = atm_metric_rad
+    
+    if beam_cfg.get('enabled', False):
+        result['snr_proxy'] = snr_proxy
+        result['beam_attenuation'] = beam_attenuation
+    
+    if terrain_cfg.get('enabled', False) and dem is not None:
+        result['height_above_ground_m'] = height_above_ground
+        result['occluded_fraction'] = occluded_fraction
+    
+    return result
