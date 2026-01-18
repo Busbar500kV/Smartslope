@@ -343,7 +343,9 @@ def generate_results_md(
     data: Dict[str, np.ndarray],
     alarms: List,
     output_dir: Path,
-    run_id: str
+    run_id: str,
+    geometry_metrics: Dict = None,
+    alarm_state: Dict = None
 ) -> None:
     """
     Generate human-readable results.md with embedded images.
@@ -356,6 +358,8 @@ def generate_results_md(
         alarms: List of AlarmEvent objects
         output_dir: Output directory
         run_id: Run identifier
+        geometry_metrics: Optional geometry metrics dictionary
+        alarm_state: Optional alarm state dictionary
     """
     results_path = output_dir / 'results.md'
     
@@ -437,6 +441,13 @@ def generate_results_md(
         f.write("### Scene Before/After\n\n")
         f.write("![Before/After](scene_3d_before_after.png)\n\n")
         
+        f.write("### 2D Engineering Views\n\n")
+        f.write("#### Plan View (Top-Down)\n\n")
+        f.write("![Plan View](scene_plan_view.png)\n\n")
+        
+        f.write("#### Elevation View (Distance vs Height)\n\n")
+        f.write("![Elevation View](scene_elevation_view.png)\n\n")
+        
         f.write("### HMI Station Dashboard\n\n")
         f.write("![HMI Dashboard](hmi_station.png)\n\n")
         
@@ -446,12 +457,54 @@ def generate_results_md(
         f.write("### Time-Series Grid\n\n")
         f.write("![Time-Series](timeseries_grid.png)\n\n")
         
+        # Geometry & Sensitivity section
+        if geometry_metrics:
+            f.write("## Geometry & Sensitivity\n\n")
+            
+            summary = geometry_metrics['system_summary']
+            f.write("### System Summary\n\n")
+            f.write(f"- **Wavelength:** {summary['wavelength_mm']:.2f} mm\n")
+            f.write(f"- **Frequency:** {summary['frequency_ghz']:.2f} GHz\n")
+            f.write(f"- **Reference Targets:** {summary['ref_count']}\n")
+            f.write(f"- **Slope Targets:** {summary['slope_count']}\n")
+            f.write(f"- **Range:** {summary['min_range_m']:.0f} - {summary['max_range_m']:.0f} m\n")
+            
+            if summary.get('min_los_gain_slope') is not None:
+                f.write(f"- **LOS Gain (slope):** {summary['min_los_gain_slope']:.3f} to {summary['max_los_gain_slope']:.3f}\n")
+            f.write("\n")
+            
+            f.write("### Reflector Geometry Metrics\n\n")
+            f.write("| Name | Role | Range [m] | Vertical [°] | Azimuth [°] | LOS Gain | Predicted LOS mm/mm |\n")
+            f.write("|------|------|-----------|--------------|-------------|----------|---------------------|\n")
+            
+            for refl in geometry_metrics['reflectors']:
+                los_gain_str = f"{refl['los_gain_for_motion']:.3f}" if refl['los_gain_for_motion'] is not None else "N/A"
+                pred_str = f"{refl['predicted_los_mm_per_true_mm']:.3f}" if refl['predicted_los_mm_per_true_mm'] is not None else "N/A"
+                
+                f.write(f"| {refl['name']} | {refl['role']} | {refl['range_m']:.1f} | "
+                       f"{refl['vertical_angle_deg']:.1f} | {refl['azimuth_deg']:.1f} | "
+                       f"{los_gain_str} | {pred_str} |\n")
+            f.write("\n")
+            
+            f.write("**LOS Gain Interpretation:**\n")
+            f.write("- **1.0** = motion directly along line-of-sight (maximum sensitivity, positive)\n")
+            f.write("- **-1.0** = motion directly opposite line-of-sight (maximum sensitivity, negative)\n")
+            f.write("- **0.0** = motion perpendicular to line-of-sight (invisible to radar)\n\n")
+            
+            f.write("**Predicted LOS mm/mm:** Shows how much LOS displacement (mm) results from 1 mm true motion "
+                   "in the target's motion direction. Equal to LOS gain when motion direction is normalized.\n\n")
+            
+            f.write("**Data Files:**\n")
+            f.write("- [geometry_metrics.csv](geometry_metrics.csv)\n")
+            f.write("- [geometry_metrics.json](geometry_metrics.json)\n\n")
+        
         # Alarm log section
         f.write("## Alarm Log\n\n")
         
         f.write("### Alarm Code Definitions\n\n")
         f.write("- **REF_MOVE** (CRITICAL): Reference target displacement exceeds threshold\n")
         f.write("- **SLOPE_MOVE** (ALARM): Slope target movement rate exceeds threshold\n")
+        f.write("- **SLOPE_EVENT_SYSTEM** (CRITICAL): Multiple slope targets moving (K-of-N consensus)\n")
         f.write("- **HIGH_NOISE** (WARN): High phase noise detected (possible bad weather)\n")
         f.write("- **DROPOUT_HIGH** (WARN/ALARM): High data dropout rate\n")
         f.write("- **DRIFT_HIGH** (WARN): High system drift rate\n\n")
@@ -468,6 +521,35 @@ def generate_results_md(
             count = severity_counts.get(severity, 0)
             f.write(f"- **{severity}:** {count}\n")
         f.write("\n")
+        
+        # Alarm Operations section
+        if alarm_state:
+            f.write("### Alarm Operations (Latching & Acknowledgment)\n\n")
+            
+            counts = alarm_state['counts']
+            f.write(f"**Active Alarms:** {counts['active']}\n\n")
+            f.write(f"**Latched Alarms (awaiting acknowledgment):** {counts['latched']}\n")
+            f.write(f"  - CRITICAL unacknowledged: {counts['critical_unacked']}\n")
+            f.write(f"  - ALARM unacknowledged: {counts['alarm_unacked']}\n\n")
+            f.write(f"**Acknowledged Alarms:** {counts['acked']}\n\n")
+            
+            escalation = alarm_state['escalation']
+            if escalation['enabled']:
+                f.write(f"**Escalation:** ")
+                if escalation['escalated_count'] > 0:
+                    f.write(f"⚠️  {escalation['escalated_count']} CRITICAL alarm(s) unacknowledged for >{escalation['threshold_minutes']} minutes\n\n")
+                else:
+                    f.write(f"None (threshold: {escalation['threshold_minutes']} minutes)\n\n")
+            
+            f.write("**Latching Behavior:**\n")
+            f.write("- Alarms with severity ALARM or CRITICAL will latch (persist) until acknowledged.\n")
+            f.write("- To acknowledge alarms, create an `alarm_ack.json` file in the run directory.\n")
+            f.write("- See `alarm_ack_template.json` for format.\n\n")
+            
+            f.write("**Data Files:**\n")
+            f.write("- [alarm_state.json](alarm_state.json) - Full alarm state snapshot\n")
+            f.write("- [alarm_log.csv](alarm_log.csv) - Complete alarm log with state columns\n")
+            f.write("- [scada_telemetry.csv](scada_telemetry.csv) - Time-series telemetry for SCADA integration\n\n")
         
         # Show first 15 alarms in markdown table
         if alarms:

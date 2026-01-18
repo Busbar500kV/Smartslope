@@ -131,13 +131,18 @@
     "slope_move_mm_threshold": 5.0,
     "slope_rate_mm_per_hr_threshold": 10.0,
     "slope_alarm_persistence_samples": 2,
-    "slope_k_of_n_consensus": 1,
+    "slope_k_of_n_consensus": 2,
+    "slope_consensus_window_samples": 10,
     "high_noise_phase_sigma_rad_threshold": 0.6,
     "high_noise_window_samples": 6,
     "dropout_rate_threshold": 0.25,
     "dropout_window_samples": 6,
     "drift_rate_rad_per_hr_threshold": 2.0,
     "drift_window_samples": 6
+  },
+  "alarm_ops": {
+    "latch_severities": ["ALARM", "CRITICAL"],
+    "escalation_after_minutes": 30
   },
   "alarm_injection": {
     "enable": true,

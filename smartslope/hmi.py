@@ -16,7 +16,9 @@ def render_hmi_dashboard(
     config: Dict,
     alarms: List,
     run_id: str,
-    output_path: Path
+    output_path: Path,
+    geometry_metrics: Dict = None,
+    alarm_state: Dict = None
 ) -> None:
     """
     Render HMI-style station dashboard image.
@@ -27,6 +29,8 @@ def render_hmi_dashboard(
         alarms: List of AlarmEvent objects
         run_id: Run identifier
         output_path: Output PNG file path
+        geometry_metrics: Optional geometry metrics dictionary
+        alarm_state: Optional alarm state dictionary
     """
     # Extract config
     hmi_cfg = config.get('hmi', {})
@@ -76,11 +80,11 @@ def render_hmi_dashboard(
         elif alarm.alarm_code == 'DROPOUT_HIGH':
             comms_status = 'ALARM' if alarm.severity == 'ALARM' else 'WARN'
     
-    # Create figure
-    fig = plt.figure(figsize=(16, 10))
+    # Create figure with more rows to accommodate new tiles
+    fig = plt.figure(figsize=(16, 12))
     fig.patch.set_facecolor('#1a1a1a')  # Dark background for HMI look
     
-    gs = GridSpec(4, 3, figure=fig, hspace=0.4, wspace=0.3)
+    gs = GridSpec(5, 3, figure=fig, hspace=0.4, wspace=0.3)
     
     # Header section
     ax_header = fig.add_subplot(gs[0, :])
@@ -159,8 +163,65 @@ def render_hmi_dashboard(
     ax_comms.text(0.5, 0.7, 'COMMS/DATA', ha='center', va='center', fontsize=14, weight='bold', color='white')
     ax_comms.text(0.5, 0.3, comms_status, ha='center', va='center', fontsize=16, weight='bold', color=comms_color)
     
-    # Latest alarms table
-    ax_alarms = fig.add_subplot(gs[3, 1:])
+    # Geometry Sensitivity Tile
+    ax_geom = fig.add_subplot(gs[3, 1])
+    ax_geom.set_facecolor('#2a2a2a')
+    ax_geom.axis('off')
+    ax_geom.set_xlim(0, 1)
+    ax_geom.set_ylim(0, 1)
+    rect = mpatches.Rectangle((0.1, 0.1), 0.8, 0.8, linewidth=3, edgecolor='cyan', facecolor='none')
+    ax_geom.add_patch(rect)
+    ax_geom.text(0.5, 0.85, 'GEOMETRY', ha='center', va='center', fontsize=12, weight='bold', color='white')
+    
+    if geometry_metrics:
+        summary = geometry_metrics.get('system_summary', {})
+        min_range = summary.get('min_range_m', 0)
+        max_range = summary.get('max_range_m', 0)
+        min_los = summary.get('min_los_gain_slope')
+        max_los = summary.get('max_los_gain_slope')
+        
+        ax_geom.text(0.5, 0.65, f'Range: {min_range:.0f}-{max_range:.0f}m', 
+                    ha='center', va='center', fontsize=9, color='lightgray')
+        if min_los is not None and max_los is not None:
+            ax_geom.text(0.5, 0.50, f'LOS Gain (slope):', 
+                        ha='center', va='center', fontsize=9, color='lightgray')
+            ax_geom.text(0.5, 0.35, f'{min_los:.3f} to {max_los:.3f}', 
+                        ha='center', va='center', fontsize=9, color='cyan')
+        else:
+            ax_geom.text(0.5, 0.42, 'No slope motion', 
+                        ha='center', va='center', fontsize=9, color='lightgray')
+    else:
+        ax_geom.text(0.5, 0.5, 'N/A', ha='center', va='center', fontsize=10, color='lightgray')
+    
+    # Alarm Acknowledgment Tile
+    ax_ack = fig.add_subplot(gs[3, 2])
+    ax_ack.set_facecolor('#2a2a2a')
+    ax_ack.axis('off')
+    ax_ack.set_xlim(0, 1)
+    ax_ack.set_ylim(0, 1)
+    
+    unacked_count = 0
+    escalation_active = False
+    
+    if alarm_state:
+        counts = alarm_state.get('counts', {})
+        unacked_count = counts.get('critical_unacked', 0) + counts.get('alarm_unacked', 0)
+        escalation = alarm_state.get('escalation', {})
+        escalation_active = escalation.get('escalated_count', 0) > 0
+    
+    ack_color = 'red' if unacked_count > 0 else 'green'
+    rect = mpatches.Rectangle((0.1, 0.1), 0.8, 0.8, linewidth=3, edgecolor=ack_color, facecolor='none')
+    ax_ack.add_patch(rect)
+    ax_ack.text(0.5, 0.7, 'ACK PENDING', ha='center', va='center', fontsize=12, weight='bold', color='white')
+    ax_ack.text(0.5, 0.45, f'{unacked_count}', ha='center', va='center', fontsize=24, weight='bold', color=ack_color)
+    
+    if escalation_active:
+        ax_ack.text(0.5, 0.25, 'ESCALATION', ha='center', va='center', 
+                   fontsize=10, weight='bold', color='red', 
+                   bbox=dict(boxstyle='round', facecolor='red', alpha=0.3))
+    
+    # Latest alarms table (moved to row 4)
+    ax_alarms = fig.add_subplot(gs[4, :])
     ax_alarms.set_facecolor('#2a2a2a')
     ax_alarms.axis('off')
     ax_alarms.set_xlim(0, 1)

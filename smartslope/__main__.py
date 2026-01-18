@@ -16,6 +16,12 @@ def simulate_3d_main(config_path: str, outdir: str) -> int:
     from datetime import datetime
     from smartslope.sim3d import load_config_3d, simulate_3d
     from smartslope.scene import plot_scene_3d, plot_scene_before_after
+    from smartslope.scene_2d import plot_plan_view, plot_elevation_view
+    from smartslope.geometry_metrics import (
+        compute_geometry_metrics,
+        write_geometry_metrics_csv,
+        write_geometry_metrics_json
+    )
     from smartslope.report import (
         plot_reflector_timeseries, 
         plot_timeseries_grid,
@@ -23,7 +29,15 @@ def simulate_3d_main(config_path: str, outdir: str) -> int:
         generate_manifest,
         generate_results_md
     )
-    from smartslope.alarms import generate_alarms, write_alarm_log_csv, plot_alarm_timeline
+    from smartslope.alarms import (
+        generate_alarms,
+        write_alarm_log_csv,
+        plot_alarm_timeline,
+        apply_alarm_latching_and_acks,
+        write_alarm_state_json,
+        generate_ack_template
+    )
+    from smartslope.scada_export import write_scada_telemetry
     from smartslope.hmi import render_hmi_dashboard
     from smartslope.io_npz import save_npz
     from smartslope.math_utils import unit
@@ -103,6 +117,51 @@ def simulate_3d_main(config_path: str, outdir: str) -> int:
     )
     generated_files.append('scene_3d_before_after.png')
     
+    # Generate geometry metrics
+    print("Computing geometry metrics...")
+    wavelength_m = float(data['wavelength_m'][0])
+    motion_directions_for_metrics = []
+    for i, refl_cfg in enumerate(config['reflectors']):
+        motion_cfg = refl_cfg.get('motion')
+        if motion_cfg is not None and motion_cfg.get('model') != 'none':
+            direction = np.array(motion_cfg['direction_xyz_unit'], dtype=float)
+            motion_directions_for_metrics.append(direction)
+        else:
+            motion_directions_for_metrics.append(None)
+    
+    from smartslope.geometry_metrics import compute_geometry_metrics
+    geometry_metrics = compute_geometry_metrics(
+        radar_xyz, reflector_xyz, reflector_names, reflector_roles,
+        motion_directions_for_metrics, wavelength_m, config
+    )
+    
+    print("Writing geometry_metrics.csv...")
+    geom_csv_path = outdir_path / 'geometry_metrics.csv'
+    write_geometry_metrics_csv(geometry_metrics, geom_csv_path)
+    generated_files.append('geometry_metrics.csv')
+    
+    print("Writing geometry_metrics.json...")
+    geom_json_path = outdir_path / 'geometry_metrics.json'
+    write_geometry_metrics_json(geometry_metrics, geom_json_path)
+    generated_files.append('geometry_metrics.json')
+    
+    # Generate 2D engineering views
+    print("Generating scene_plan_view.png...")
+    plan_view_path = outdir_path / 'scene_plan_view.png'
+    plot_plan_view(
+        radar_xyz, reflector_xyz, reflector_names, reflector_roles,
+        motion_vectors=np.array(motion_vectors), output_path=plan_view_path
+    )
+    generated_files.append('scene_plan_view.png')
+    
+    print("Generating scene_elevation_view.png...")
+    elevation_view_path = outdir_path / 'scene_elevation_view.png'
+    plot_elevation_view(
+        radar_xyz, reflector_xyz, reflector_xyz_displaced,
+        reflector_names, reflector_roles, output_path=elevation_view_path
+    )
+    generated_files.append('scene_elevation_view.png')
+    
     # Plot time-series
     max_plots = output_cfg.get('max_reflector_plots', 12)
     n_reflectors = len(reflector_names)
@@ -133,11 +192,34 @@ def simulate_3d_main(config_path: str, outdir: str) -> int:
     alarms = generate_alarms(data, config)
     print(f"Generated {len(alarms)} alarms")
     
+    # Apply alarm latching and acknowledgments
+    print("Processing alarm states (latching/ack)...")
+    ack_file = outdir_path / 'alarm_ack.json'
+    alarms, alarm_state = apply_alarm_latching_and_acks(alarms, config, data, ack_file)
+    
+    # Generate ack template if no ack file exists
+    if not ack_file.exists():
+        ack_template_path = outdir_path / 'alarm_ack_template.json'
+        generate_ack_template(alarms, ack_template_path)
+        generated_files.append('alarm_ack_template.json')
+    
+    # Write alarm state JSON
+    print("Writing alarm_state.json...")
+    alarm_state_path = outdir_path / 'alarm_state.json'
+    write_alarm_state_json(alarm_state, alarm_state_path)
+    generated_files.append('alarm_state.json')
+    
     # Write alarm log CSV
     print("Writing alarm_log.csv...")
     alarm_log_path = outdir_path / 'alarm_log.csv'
     write_alarm_log_csv(alarms, alarm_log_path)
     generated_files.append('alarm_log.csv')
+    
+    # Write SCADA telemetry
+    print("Writing scada_telemetry.csv...")
+    scada_path = outdir_path / 'scada_telemetry.csv'
+    write_scada_telemetry(data, config, alarms, run_id, scada_path)
+    generated_files.append('scada_telemetry.csv')
     
     # Plot alarm timeline
     print("Generating alarm_timeline.png...")
@@ -148,12 +230,12 @@ def simulate_3d_main(config_path: str, outdir: str) -> int:
     # Render HMI dashboard
     print("Generating hmi_station.png...")
     hmi_path = outdir_path / 'hmi_station.png'
-    render_hmi_dashboard(data, config, alarms, run_id, hmi_path)
+    render_hmi_dashboard(data, config, alarms, run_id, hmi_path, geometry_metrics, alarm_state)
     generated_files.append('hmi_station.png')
     
     # Generate results.md (primary human-readable output)
     print("Generating results.md...")
-    generate_results_md(config, data, alarms, outdir_path, run_id)
+    generate_results_md(config, data, alarms, outdir_path, run_id, geometry_metrics, alarm_state)
     generated_files.append('results.md')
     
     # Generate report (legacy)
