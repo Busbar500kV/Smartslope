@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -97,6 +98,125 @@ def compute_motion_timeseries(
     return disp_3d
 
 
+def apply_alarm_injection(
+    config: Dict,
+    t: np.ndarray,
+    names: np.ndarray,
+    disp_true_xyz: np.ndarray,
+    noise_sigmas: np.ndarray,
+    dropout_probs: np.ndarray,
+    rng: np.random.Generator
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Apply alarm injection scenarios from config.
+    
+    Modifies displacement, noise, and dropout arrays to trigger alarms at known times.
+    
+    Args:
+        config: Configuration dictionary
+        t: Time array (T,)
+        names: Reflector names (N,)
+        disp_true_xyz: True 3D displacement (N, T, 3)
+        noise_sigmas: Per-reflector phase noise sigmas (N,)
+        dropout_probs: Per-reflector dropout probabilities (N,)
+        rng: Random number generator
+    
+    Returns:
+        Modified (disp_true_xyz, noise_sigmas_modified, dropout_probs_modified)
+    """
+    injection_cfg = config.get('alarm_injection', {})
+    if not injection_cfg.get('enable', False):
+        return disp_true_xyz, noise_sigmas, dropout_probs
+    
+    scenarios = injection_cfg.get('scenarios', [])
+    if not scenarios:
+        return disp_true_xyz, noise_sigmas, dropout_probs
+    
+    dt_s = config['environment']['dt_s']
+    n_samples = len(t)
+    n_reflectors = len(names)
+    
+    # Create modifiable copies
+    disp_mod = disp_true_xyz.copy()
+    noise_mod = np.tile(noise_sigmas[:, None], (1, n_samples))
+    dropout_mod = np.tile(dropout_probs[:, None], (1, n_samples))
+    
+    for scenario in scenarios:
+        name = scenario.get('name', 'unknown')
+        t0_s = scenario.get('t0_s', 0.0)
+        duration_s = scenario.get('duration_s', 0.0)
+        
+        # Find time window
+        t1_s = t0_s + duration_s
+        mask = (t >= t0_s) & (t < t1_s)
+        
+        if scenario.get('extra_phase_noise_sigma_rad') is not None:
+            # Add extra noise to all reflectors
+            extra_noise = scenario['extra_phase_noise_sigma_rad']
+            noise_mod[:, mask] += extra_noise
+            print(f"  Alarm injection: {name} at t={t0_s:.0f}s, duration={duration_s:.0f}s (extra noise)")
+        
+        if scenario.get('forced_disp_mm') is not None and scenario.get('target') is not None:
+            # Force displacement on specific target
+            target_name = scenario['target']
+            target_idx = np.where(names == target_name)[0]
+            if len(target_idx) == 0:
+                print(f"  Warning: target {target_name} not found for injection {name}")
+                continue
+            target_idx = target_idx[0]
+            
+            forced_disp_m = scenario['forced_disp_mm'] * 1e-3
+            direction = np.array(scenario.get('direction_xyz_unit', [1.0, 0.0, 0.0]), dtype=float)
+            direction = unit(direction)
+            
+            # Add forced displacement
+            disp_mod[target_idx, mask, :] += forced_disp_m * direction[None, :]
+            print(f"  Alarm injection: {name} at t={t0_s:.0f}s, duration={duration_s:.0f}s (ref instability on {target_name})")
+        
+        if scenario.get('extra_dropout_prob') is not None:
+            # Increase dropout probability for all reflectors
+            extra_dropout = scenario['extra_dropout_prob']
+            dropout_mod[:, mask] = np.minimum(dropout_mod[:, mask] + extra_dropout, 1.0)
+            print(f"  Alarm injection: {name} at t={t0_s:.0f}s, duration={duration_s:.0f}s (extra dropouts)")
+    
+    # Convert noise_mod back to per-sample usage (will be applied later)
+    # For now, return noise sigmas that will be used per-timestep
+    return disp_mod, noise_mod, dropout_mod
+
+
+def generate_timestamps(config: Dict, t_s: np.ndarray) -> tuple[list[str], np.ndarray]:
+    """
+    Generate ISO8601 timestamp strings and unix timestamps.
+    
+    Args:
+        config: Configuration dictionary with 'hmi' section
+        t_s: Time array in seconds (T,)
+    
+    Returns:
+        (t_iso, t_unix_s) where t_iso is list of ISO strings and t_unix_s is unix timestamps
+    """
+    hmi_cfg = config.get('hmi', {})
+    start_time_iso = hmi_cfg.get('start_time_iso')
+    
+    if start_time_iso is None:
+        # Fallback: use current time
+        start_dt = datetime.now(timezone.utc)
+    else:
+        # Parse ISO8601 with timezone
+        start_dt = datetime.fromisoformat(start_time_iso)
+    
+    # Generate timestamps
+    t_iso = []
+    t_unix_s = np.zeros(len(t_s), dtype=float)
+    
+    for i, t_offset in enumerate(t_s):
+        dt = start_dt + timedelta(seconds=float(t_offset))
+        t_iso.append(dt.isoformat())
+        t_unix_s[i] = dt.timestamp()
+    
+    return t_iso, t_unix_s
+
+
 def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
     """
     Generate 3D geometry-aware synthetic coherent phase data.
@@ -108,6 +228,8 @@ def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
     Returns:
         Dictionary with arrays:
             - t_s: (T,)
+            - t_iso: list of ISO8601 strings (T,)
+            - t_unix_s: (T,) unix timestamps
             - names: (N,)
             - roles: (N,)
             - pos_xyz_m: (N, 3)
@@ -184,6 +306,12 @@ def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
             direction_unit = normalize_direction(motion_cfg['direction_xyz_unit'])
             disp_true_xyz[i] = compute_motion_timeseries(t, motion_cfg, direction_unit)
     
+    # Apply alarm injection scenarios (modifies displacement, noise, dropout)
+    print("Checking for alarm injection scenarios...")
+    disp_true_xyz, noise_sigmas_per_t, dropout_probs_per_t = apply_alarm_injection(
+        config, t, names, disp_true_xyz, noise_sigmas, dropout_probs, rng
+    )
+    
     # Project 3D displacement onto LOS to get LOS displacement
     disp_los = np.zeros((n_reflectors, n_samples), dtype=float)
     for i in range(n_reflectors):
@@ -212,19 +340,21 @@ def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
     # Add drift and noise to phase
     phi_true = phi_motion + drift_rad[None, :]
     
-    # Add per-reflector phase noise (scaled by amplitude)
+    # Add per-reflector phase noise (scaled by amplitude, with injection)
     phi_noisy = np.zeros_like(phi_true)
     for i in range(n_reflectors):
         # Prevent division by zero for weak/zero amplitude reflectors
         amplitude_safe = max(amplitudes[i], 1e-6)
-        noise_std = noise_sigmas[i] / np.sqrt(amplitude_safe)
-        phi_noisy[i] = phi_true[i] + rng.normal(0.0, noise_std, size=n_samples)
+        for t_idx in range(n_samples):
+            noise_std = noise_sigmas_per_t[i, t_idx] / np.sqrt(amplitude_safe)
+            phi_noisy[i, t_idx] = phi_true[i, t_idx] + rng.normal(0.0, noise_std)
     
-    # Apply dropouts
+    # Apply dropouts (with injection)
     mask_valid = np.ones((n_reflectors, n_samples), dtype=np.uint8)
     for i in range(n_reflectors):
-        dropout_mask = rng.random(n_samples) < dropout_probs[i]
-        mask_valid[i, dropout_mask] = 0
+        for t_idx in range(n_samples):
+            if rng.random() < dropout_probs_per_t[i, t_idx]:
+                mask_valid[i, t_idx] = 0
     
     phi_noisy = np.where(mask_valid, phi_noisy, np.nan)
     
@@ -250,8 +380,14 @@ def simulate_3d(config: Dict, seed: int = 123) -> Dict[str, np.ndarray]:
     # Wrapped phase
     phi_wrapped = wrap_pi(phi_unwrapped)
     
+    # Generate timestamps
+    print("Generating timestamps...")
+    t_iso, t_unix_s = generate_timestamps(config, t)
+    
     return {
         't_s': t,
+        't_iso': np.array(t_iso, dtype=object),  # Array of strings
+        't_unix_s': t_unix_s,
         'names': names,
         'roles': roles,
         'pos_xyz_m': pos_xyz,

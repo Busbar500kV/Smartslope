@@ -336,3 +336,192 @@ def generate_manifest(
         json.dump(manifest, f, indent=2)
     
     print(f"Wrote {manifest_path}")
+
+
+def generate_results_md(
+    config: Dict,
+    data: Dict[str, np.ndarray],
+    alarms: List,
+    output_dir: Path,
+    run_id: str
+) -> None:
+    """
+    Generate human-readable results.md with embedded images.
+    
+    This is the primary output document that should be readable directly on GitHub.
+    
+    Args:
+        config: Configuration dictionary
+        data: Simulation output data
+        alarms: List of AlarmEvent objects
+        output_dir: Output directory
+        run_id: Run identifier
+    """
+    results_path = output_dir / 'results.md'
+    
+    # Extract configuration
+    hmi_cfg = config.get('hmi', {})
+    radar_station_cfg = config.get('radar_station', {})
+    radar_cfg = config['radar']
+    env_cfg = config['environment']
+    alarm_injection_cfg = config.get('alarm_injection', {})
+    
+    station_name = hmi_cfg.get('station_name', 'Demo Radar Station')
+    site_id = hmi_cfg.get('site_id', 'N/A')
+    
+    # Reflector info
+    names = data['names']
+    roles = data['roles']
+    pos_xyz = data['pos_xyz_m']
+    wavelength_m = float(data['wavelength_m'][0])
+    radar_xyz = data['radar_xyz_m']
+    
+    # Compute geometry info
+    ranges_m = []
+    incidence_angles_deg = []
+    for i in range(len(names)):
+        los_vec = compute_los_vector(radar_xyz, pos_xyz[i])
+        range_m = compute_range(radar_xyz, pos_xyz[i])
+        incidence_deg = compute_incidence_angle(los_vec)
+        ranges_m.append(range_m)
+        incidence_angles_deg.append(incidence_deg)
+    
+    with open(results_path, 'w') as f:
+        # Title
+        f.write(f"# Smartslope HMI Results: {station_name}\n\n")
+        f.write(f"**Run ID:** `{run_id}`\n\n")
+        f.write(f"**Site ID:** {site_id}\n\n")
+        
+        # Station parameters table
+        f.write("## Station Parameters\n\n")
+        f.write("| Parameter | Value |\n")
+        f.write("|-----------|-------|\n")
+        
+        freq_hz = radar_station_cfg.get('frequency_hz', radar_cfg.get('frequency_hz', 24e9))
+        freq_ghz = freq_hz / 1e9
+        f.write(f"| Frequency | {freq_ghz:.2f} GHz |\n")
+        f.write(f"| Wavelength | {wavelength_m * 1000:.2f} mm |\n")
+        
+        tx_power = radar_station_cfg.get('tx_power_dbm', 20)
+        f.write(f"| Tx Power | {tx_power} dBm |\n")
+        
+        sample_period_s = radar_station_cfg.get('sample_period_s', env_cfg['dt_s'])
+        sample_period_min = sample_period_s / 60.0
+        f.write(f"| Sample Period | {sample_period_min:.1f} min ({sample_period_s} s) |\n")
+        
+        duration_s = env_cfg['duration_s']
+        duration_hr = duration_s / 3600.0
+        f.write(f"| Run Duration | {duration_hr:.1f} hours ({duration_s} s) |\n")
+        
+        t_iso = data['t_iso']
+        f.write(f"| Start Time | {t_iso[0]} |\n")
+        f.write(f"| End Time | {t_iso[-1]} |\n")
+        f.write("\n")
+        
+        # Reflector summary table
+        f.write("## Reflector Summary\n\n")
+        f.write("| Name | Role | Position (x, y, z) [m] | Range [m] |\n")
+        f.write("|------|------|------------------------|----------|\n")
+        
+        for i in range(len(names)):
+            xyz = pos_xyz[i]
+            f.write(f"| {names[i]} | {roles[i]} | ({xyz[0]:.1f}, {xyz[1]:.1f}, {xyz[2]:.1f}) | {ranges_m[i]:.1f} |\n")
+        f.write("\n")
+        
+        # Key figures section
+        f.write("## Key Figures\n\n")
+        
+        f.write("### 3D Scene Geometry\n\n")
+        f.write("![3D Scene](scene_3d.png)\n\n")
+        
+        f.write("### Scene Before/After\n\n")
+        f.write("![Before/After](scene_3d_before_after.png)\n\n")
+        
+        f.write("### HMI Station Dashboard\n\n")
+        f.write("![HMI Dashboard](hmi_station.png)\n\n")
+        
+        f.write("### Alarm Timeline\n\n")
+        f.write("![Alarm Timeline](alarm_timeline.png)\n\n")
+        
+        f.write("### Time-Series Grid\n\n")
+        f.write("![Time-Series](timeseries_grid.png)\n\n")
+        
+        # Alarm log section
+        f.write("## Alarm Log\n\n")
+        
+        f.write("### Alarm Code Definitions\n\n")
+        f.write("- **REF_MOVE** (CRITICAL): Reference target displacement exceeds threshold\n")
+        f.write("- **SLOPE_MOVE** (ALARM): Slope target movement rate exceeds threshold\n")
+        f.write("- **HIGH_NOISE** (WARN): High phase noise detected (possible bad weather)\n")
+        f.write("- **DROPOUT_HIGH** (WARN/ALARM): High data dropout rate\n")
+        f.write("- **DRIFT_HIGH** (WARN): High system drift rate\n\n")
+        
+        f.write("### Alarm Summary\n\n")
+        f.write(f"**Total Alarms:** {len(alarms)}\n\n")
+        
+        # Count by severity
+        severity_counts = {}
+        for alarm in alarms:
+            severity_counts[alarm.severity] = severity_counts.get(alarm.severity, 0) + 1
+        
+        for severity in ['CRITICAL', 'ALARM', 'WARN', 'INFO']:
+            count = severity_counts.get(severity, 0)
+            f.write(f"- **{severity}:** {count}\n")
+        f.write("\n")
+        
+        # Show first 15 alarms in markdown table
+        if alarms:
+            f.write("### Recent Alarms (first 15)\n\n")
+            f.write("| Time | Severity | Code | Target | Message |\n")
+            f.write("|------|----------|------|--------|----------|\n")
+            
+            for alarm in alarms[:15]:
+                # Extract time only (HH:MM:SS)
+                time_str = alarm.timestamp_iso.split('T')[1][:8] if 'T' in alarm.timestamp_iso else alarm.timestamp_iso[:8]
+                f.write(f"| {time_str} | {alarm.severity} | {alarm.alarm_code} | {alarm.target} | {alarm.message} |\n")
+            f.write("\n")
+            
+            if len(alarms) > 15:
+                f.write(f"*...and {len(alarms) - 15} more alarms*\n\n")
+        else:
+            f.write("**No alarms generated during this run.**\n\n")
+        
+        f.write("**Full alarm log:** See [alarm_log.csv](alarm_log.csv)\n\n")
+        
+        # Notes section
+        f.write("## Notes\n\n")
+        
+        operator_note = hmi_cfg.get('operator_note', '')
+        if operator_note:
+            f.write(f"**Operator Note:** {operator_note}\n\n")
+        
+        # Document injection scenarios
+        if alarm_injection_cfg.get('enable', False):
+            scenarios = alarm_injection_cfg.get('scenarios', [])
+            if scenarios:
+                f.write("### Alarm Injection Scenarios\n\n")
+                f.write("This synthetic run includes forced alarm scenarios for validation:\n\n")
+                
+                for scenario in scenarios:
+                    name = scenario.get('name', 'unknown')
+                    t0_s = scenario.get('t0_s', 0)
+                    t0_hr = t0_s / 3600.0
+                    duration_s = scenario.get('duration_s', 0)
+                    duration_hr = duration_s / 3600.0
+                    
+                    f.write(f"- **{name}**:\n")
+                    f.write(f"  - Start: {t0_hr:.1f} hr ({t0_s:.0f} s)\n")
+                    f.write(f"  - Duration: {duration_hr:.1f} hr ({duration_s:.0f} s)\n")
+                    
+                    if 'extra_phase_noise_sigma_rad' in scenario:
+                        f.write(f"  - Effect: Extra phase noise (σ = {scenario['extra_phase_noise_sigma_rad']:.2f} rad)\n")
+                    if 'forced_disp_mm' in scenario:
+                        f.write(f"  - Effect: Forced displacement on {scenario.get('target', 'N/A')} ({scenario['forced_disp_mm']:.1f} mm)\n")
+                    if 'extra_dropout_prob' in scenario:
+                        f.write(f"  - Effect: Extra dropout probability ({scenario['extra_dropout_prob']*100:.0f}%)\n")
+                    f.write("\n")
+        
+        f.write("---\n\n")
+        f.write("*Generated by Smartslope 3D simulation pipeline*\n")
+    
+    print(f"Wrote {results_path}")
