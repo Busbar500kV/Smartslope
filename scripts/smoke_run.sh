@@ -66,3 +66,10 @@ echo "  Smoke run complete!"
 echo "========================================="
 echo ""
 echo "Check outputs/ directory for results."
+echo ""
+echo "Latest run outputs:"
+LATEST_RUN=$(ls -td outputs/run_* 2>/dev/null | head -1)
+if [ -n "$LATEST_RUN" ]; then
+    echo "  Directory: $LATEST_RUN"
+    ls -lh "$LATEST_RUN" 2>/dev/null
+fi
