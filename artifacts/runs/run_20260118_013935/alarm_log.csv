@@ -1,0 +1,14 @@
+alarm_id,timestamp_iso,sample_idx,severity,alarm_code,target,message,value,threshold
+4,2026-01-18T12:30:00-08:00,75,WARN,HIGH_NOISE,SYSTEM,"High phase noise detected: 0.740 rad (threshold: 0.600 rad)",0.739819,0.600000
+5,2026-01-18T13:40:00-08:00,82,WARN,HIGH_NOISE,SYSTEM,"High phase noise detected: 1.086 rad (threshold: 0.600 rad)",1.085698,0.600000
+6,2026-01-18T14:50:00-08:00,89,WARN,HIGH_NOISE,SYSTEM,"High phase noise detected: 1.218 rad (threshold: 0.600 rad)",1.217764,0.600000
+7,2026-01-18T16:00:00-08:00,96,WARN,HIGH_NOISE,SYSTEM,"High phase noise detected: 1.168 rad (threshold: 0.600 rad)",1.167925,0.600000
+8,2026-01-18T17:10:00-08:00,103,WARN,HIGH_NOISE,SYSTEM,"High phase noise detected: 1.174 rad (threshold: 0.600 rad)",1.174491,0.600000
+1,2026-01-18T18:20:00-08:00,110,CRITICAL,REF_MOVE,REF_A,"Reference REF_A moved 4.85 mm (threshold: 2.00 mm)",4.847064,2.000000
+9,2026-01-18T18:20:00-08:00,110,WARN,HIGH_NOISE,SYSTEM,"High phase noise detected: 1.105 rad (threshold: 0.600 rad)",1.105119,0.600000
+10,2026-01-18T23:00:00-08:00,138,WARN,HIGH_NOISE,SYSTEM,"High phase noise detected: 0.647 rad (threshold: 0.600 rad)",0.647010,0.600000
+2,2026-01-18T23:10:00-08:00,139,ALARM,SLOPE_MOVE,SLOPE_01,"Slope SLOPE_01 moving at 12.67 mm/hr (threshold: 10.00 mm/hr)",12.670068,10.000000
+3,2026-01-18T23:10:00-08:00,139,ALARM,SLOPE_MOVE,SLOPE_02,"Slope SLOPE_02 moving at 12.73 mm/hr (threshold: 10.00 mm/hr)",12.729869,10.000000
+11,2026-01-19T06:10:00-08:00,181,WARN,DROPOUT_HIGH,SYSTEM,"High dropout rate: 26.7% (threshold: 25.0%)",0.266667,0.250000
+12,2026-01-19T07:20:00-08:00,188,ALARM,DROPOUT_HIGH,SYSTEM,"High dropout rate: 60.0% (threshold: 25.0%)",0.600000,0.250000
+13,2026-01-19T08:30:00-08:00,195,ALARM,DROPOUT_HIGH,SYSTEM,"High dropout rate: 56.7% (threshold: 25.0%)",0.566667,0.250000

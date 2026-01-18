@@ -1,0 +1,24 @@
+{
+  "run_id": "run_20260118_013935",
+  "timestamp": "2026-01-18T01:39:42.670274",
+  "git_commit_hash": "931181a115492de9794557b18f0d54bae7ea9eee",
+  "git_branch": "main",
+  "files_published": [
+    "runs/run_20260118_013935/scene_3d.png",
+    "runs/run_20260118_013935/hmi_station.png",
+    "runs/run_20260118_013935/timeseries_SLOPE_01.png",
+    "runs/run_20260118_013935/alarm_timeline.png",
+    "runs/run_20260118_013935/timeseries_grid.png",
+    "runs/run_20260118_013935/timeseries_SLOPE_03.png",
+    "runs/run_20260118_013935/timeseries_REF_B.png",
+    "runs/run_20260118_013935/timeseries_REF_A.png",
+    "runs/run_20260118_013935/timeseries_SLOPE_02.png",
+    "runs/run_20260118_013935/scene_3d_before_after.png",
+    "runs/run_20260118_013935/alarm_log.csv",
+    "runs/run_20260118_013935/manifest.json",
+    "runs/run_20260118_013935/report.md",
+    "runs/run_20260118_013935/results.md",
+    "runs/run_20260118_013935/run_20260118_013935.zip"
+  ],
+  "notes": ""
+}
