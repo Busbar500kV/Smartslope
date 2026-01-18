@@ -123,23 +123,27 @@ def apply_alarm_injection(
     
     Returns:
         Modified (disp_true_xyz, noise_sigmas_modified, dropout_probs_modified)
+        noise_sigmas_modified and dropout_probs_modified are 2D arrays (N, T)
     """
-    injection_cfg = config.get('alarm_injection', {})
-    if not injection_cfg.get('enable', False):
-        return disp_true_xyz, noise_sigmas, dropout_probs
-    
-    scenarios = injection_cfg.get('scenarios', [])
-    if not scenarios:
-        return disp_true_xyz, noise_sigmas, dropout_probs
-    
-    dt_s = config['environment']['dt_s']
     n_samples = len(t)
     n_reflectors = len(names)
     
-    # Create modifiable copies
-    disp_mod = disp_true_xyz.copy()
+    # Always create 2D arrays for time-varying parameters
     noise_mod = np.tile(noise_sigmas[:, None], (1, n_samples))
     dropout_mod = np.tile(dropout_probs[:, None], (1, n_samples))
+    
+    injection_cfg = config.get('alarm_injection', {})
+    if not injection_cfg.get('enable', False):
+        return disp_true_xyz, noise_mod, dropout_mod
+    
+    scenarios = injection_cfg.get('scenarios', [])
+    if not scenarios:
+        return disp_true_xyz, noise_mod, dropout_mod
+    
+    dt_s = config['environment']['dt_s']
+    
+    # Create modifiable copy of displacement
+    disp_mod = disp_true_xyz.copy()
     
     for scenario in scenarios:
         name = scenario.get('name', 'unknown')
