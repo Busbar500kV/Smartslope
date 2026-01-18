@@ -1,0 +1,95 @@
+{
+  "radar": {
+    "name": "CI_Test_Radar",
+    "position_xyz_m": [0.0, 0.0, 2.0],
+    "frequency_hz": 24000000000.0,
+    "wavelength_m": 0.0125
+  },
+  "environment": {
+    "duration_s": 3600,
+    "dt_s": 300
+  },
+  "reflectors": [
+    {
+      "name": "REF_A",
+      "role": "ref",
+      "position_xyz_m": [200.0, -50.0, 10.0],
+      "height_m": 10.0,
+      "amplitude": 1.0,
+      "noise_phase_sigma_rad": 0.08,
+      "dropout_prob": 0.01,
+      "motion": null
+    },
+    {
+      "name": "SLOPE_01",
+      "role": "slope",
+      "position_xyz_m": [500.0, -80.0, 30.0],
+      "height_m": 30.0,
+      "amplitude": 0.9,
+      "noise_phase_sigma_rad": 0.10,
+      "dropout_prob": 0.02,
+      "motion": {
+        "model": "creep_plus_event",
+        "direction_xyz_unit": [0.98, 0.0, -0.2],
+        "creep_rate_mm_per_hr": 2.0,
+        "event": {
+          "enabled": true,
+          "t0_s": 1800,
+          "rise_s": 900,
+          "slip_mm": 20.0,
+          "shape": "sigmoid"
+        }
+      }
+    }
+  ],
+  "drift_model": {
+    "enabled": true,
+    "model": "random_walk",
+    "parameters": {
+      "sigma_rad_per_sqrt_s": 0.00002
+    }
+  },
+  "output": {
+    "max_reflector_plots": 12,
+    "before_after_time_s": "end",
+    "write_npz": true,
+    "npz_path": "data/synthetic/ci_demo_3d.npz"
+  },
+  "hmi": {
+    "station_name": "CI Test Station",
+    "site_id": "CI-001",
+    "timezone": "UTC",
+    "start_time_iso": "2026-01-18T00:00:00Z",
+    "operator_note": "Fast CI test run"
+  },
+  "radar_station": {
+    "frequency_hz": 24000000000.0,
+    "tx_power_dbm": 20,
+    "noise_floor_db": -100,
+    "sample_period_s": 300,
+    "health": {
+      "expected_ref_count": 1,
+      "expected_slope_count": 1
+    }
+  },
+  "alarms": {
+    "enable": true,
+    "ref_move_mm_threshold": 2.0,
+    "ref_move_persistence_samples": 2,
+    "slope_move_mm_threshold": 5.0,
+    "slope_rate_mm_per_hr_threshold": 10.0,
+    "slope_alarm_persistence_samples": 2,
+    "slope_k_of_n_consensus": 1,
+    "slope_consensus_window_samples": 5,
+    "high_noise_phase_sigma_rad_threshold": 0.6,
+    "high_noise_window_samples": 3,
+    "dropout_rate_threshold": 0.25,
+    "dropout_window_samples": 3,
+    "drift_rate_rad_per_hr_threshold": 2.0,
+    "drift_window_samples": 3
+  },
+  "alarm_ops": {
+    "latch_severities": ["ALARM", "CRITICAL"],
+    "escalation_after_minutes": 30
+  }
+}
