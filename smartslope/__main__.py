@@ -20,14 +20,20 @@ def simulate_3d_main(config_path: str, outdir: str) -> int:
         plot_reflector_timeseries, 
         plot_timeseries_grid,
         generate_report,
-        generate_manifest
+        generate_manifest,
+        generate_results_md
     )
+    from smartslope.alarms import generate_alarms, write_alarm_log_csv, plot_alarm_timeline
+    from smartslope.hmi import render_hmi_dashboard
     from smartslope.io_npz import save_npz
     from smartslope.math_utils import unit
     
     config_path_obj = Path(config_path)
     outdir_path = Path(outdir)
     outdir_path.mkdir(parents=True, exist_ok=True)
+    
+    # Extract run_id from output directory
+    run_id = outdir_path.name
     
     print(f"Loading config: {config_path}")
     config = load_config_3d(config_path_obj)
@@ -122,7 +128,35 @@ def simulate_3d_main(config_path: str, outdir: str) -> int:
     )
     generated_files.append('timeseries_grid.png')
     
-    # Generate report
+    # Generate alarms
+    print("Generating alarms...")
+    alarms = generate_alarms(data, config)
+    print(f"Generated {len(alarms)} alarms")
+    
+    # Write alarm log CSV
+    print("Writing alarm_log.csv...")
+    alarm_log_path = outdir_path / 'alarm_log.csv'
+    write_alarm_log_csv(alarms, alarm_log_path)
+    generated_files.append('alarm_log.csv')
+    
+    # Plot alarm timeline
+    print("Generating alarm_timeline.png...")
+    alarm_timeline_path = outdir_path / 'alarm_timeline.png'
+    plot_alarm_timeline(data, config, alarms, alarm_timeline_path)
+    generated_files.append('alarm_timeline.png')
+    
+    # Render HMI dashboard
+    print("Generating hmi_station.png...")
+    hmi_path = outdir_path / 'hmi_station.png'
+    render_hmi_dashboard(data, config, alarms, run_id, hmi_path)
+    generated_files.append('hmi_station.png')
+    
+    # Generate results.md (primary human-readable output)
+    print("Generating results.md...")
+    generate_results_md(config, data, alarms, outdir_path, run_id)
+    generated_files.append('results.md')
+    
+    # Generate report (legacy)
     print("Generating report.md...")
     generate_report(config, data, outdir_path, generated_files)
     generated_files.append('report.md')

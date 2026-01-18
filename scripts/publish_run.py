@@ -109,6 +109,13 @@ def copy_artifacts(run_id: str, outputs_dir: Path, artifacts_dir: Path) -> List[
         copied_files.append(f"runs/{run_id}/{png_file.name}")
         print(f"  Copied: {png_file.name}")
     
+    # Copy CSV files (alarm logs, data exports)
+    for csv_file in run_output_dir.glob("*.csv"):
+        dest = run_artifacts_dir / csv_file.name
+        shutil.copy2(csv_file, dest)
+        copied_files.append(f"runs/{run_id}/{csv_file.name}")
+        print(f"  Copied: {csv_file.name}")
+    
     # Copy TXT files (summaries)
     for txt_file in run_output_dir.glob("*.txt"):
         dest = run_artifacts_dir / txt_file.name

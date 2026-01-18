@@ -106,5 +106,62 @@
     "before_after_time_s": "end",
     "write_npz": true,
     "npz_path": "data/synthetic/site_demo_3d.npz"
+  },
+  "hmi": {
+    "station_name": "Kegalle Demo Radar",
+    "site_id": "KEG-001",
+    "timezone": "America/Vancouver",
+    "start_time_iso": "2026-01-18T00:00:00-08:00",
+    "operator_note": "Synthetic run for alarm validation"
+  },
+  "radar_station": {
+    "frequency_hz": 24000000000.0,
+    "tx_power_dbm": 20,
+    "noise_floor_db": -100,
+    "sample_period_s": 600,
+    "health": {
+      "expected_ref_count": 2,
+      "expected_slope_count": 3
+    }
+  },
+  "alarms": {
+    "enable": true,
+    "ref_move_mm_threshold": 2.0,
+    "ref_move_persistence_samples": 3,
+    "slope_move_mm_threshold": 5.0,
+    "slope_rate_mm_per_hr_threshold": 10.0,
+    "slope_alarm_persistence_samples": 2,
+    "slope_k_of_n_consensus": 1,
+    "high_noise_phase_sigma_rad_threshold": 0.6,
+    "high_noise_window_samples": 6,
+    "dropout_rate_threshold": 0.25,
+    "dropout_window_samples": 6,
+    "drift_rate_rad_per_hr_threshold": 2.0,
+    "drift_window_samples": 6
+  },
+  "alarm_injection": {
+    "enable": true,
+    "scenarios": [
+      {
+        "name": "bad_weather_noise_burst",
+        "t0_s": 43200,
+        "duration_s": 21600,
+        "extra_phase_noise_sigma_rad": 1.0
+      },
+      {
+        "name": "ref_instability",
+        "target": "REF_A",
+        "t0_s": 64800,
+        "duration_s": 14400,
+        "forced_disp_mm": 5.0,
+        "direction_xyz_unit": [1.0, 0.0, 0.0]
+      },
+      {
+        "name": "dropout_burst",
+        "t0_s": 108000,
+        "duration_s": 10800,
+        "extra_dropout_prob": 0.6
+      }
+    ]
   }
 }
