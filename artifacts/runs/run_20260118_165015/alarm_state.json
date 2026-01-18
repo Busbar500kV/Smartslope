@@ -1,0 +1,131 @@
+{
+  "timestamp": "2026-01-19T23:50:00-08:00",
+  "total_alarms": 14,
+  "active_alarms": [
+    {
+      "alarm_id": 5,
+      "severity": "WARN",
+      "alarm_code": "HIGH_NOISE",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-18T12:30:00-08:00"
+    },
+    {
+      "alarm_id": 6,
+      "severity": "WARN",
+      "alarm_code": "HIGH_NOISE",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-18T13:40:00-08:00"
+    },
+    {
+      "alarm_id": 7,
+      "severity": "WARN",
+      "alarm_code": "HIGH_NOISE",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-18T14:50:00-08:00"
+    },
+    {
+      "alarm_id": 8,
+      "severity": "WARN",
+      "alarm_code": "HIGH_NOISE",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-18T16:00:00-08:00"
+    },
+    {
+      "alarm_id": 9,
+      "severity": "WARN",
+      "alarm_code": "HIGH_NOISE",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-18T17:10:00-08:00"
+    },
+    {
+      "alarm_id": 10,
+      "severity": "WARN",
+      "alarm_code": "HIGH_NOISE",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-18T18:20:00-08:00"
+    },
+    {
+      "alarm_id": 11,
+      "severity": "WARN",
+      "alarm_code": "HIGH_NOISE",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-18T23:00:00-08:00"
+    },
+    {
+      "alarm_id": 12,
+      "severity": "WARN",
+      "alarm_code": "DROPOUT_HIGH",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-19T06:10:00-08:00"
+    }
+  ],
+  "latched_alarms": [
+    {
+      "alarm_id": 1,
+      "severity": "CRITICAL",
+      "alarm_code": "REF_MOVE",
+      "target": "REF_A",
+      "timestamp_iso": "2026-01-18T18:20:00-08:00"
+    },
+    {
+      "alarm_id": 2,
+      "severity": "ALARM",
+      "alarm_code": "SLOPE_MOVE",
+      "target": "SLOPE_01",
+      "timestamp_iso": "2026-01-18T23:10:00-08:00"
+    },
+    {
+      "alarm_id": 3,
+      "severity": "ALARM",
+      "alarm_code": "SLOPE_MOVE",
+      "target": "SLOPE_02",
+      "timestamp_iso": "2026-01-18T23:10:00-08:00"
+    },
+    {
+      "alarm_id": 4,
+      "severity": "CRITICAL",
+      "alarm_code": "SLOPE_EVENT_SYSTEM",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-18T23:10:00-08:00"
+    },
+    {
+      "alarm_id": 13,
+      "severity": "ALARM",
+      "alarm_code": "DROPOUT_HIGH",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-19T07:20:00-08:00"
+    },
+    {
+      "alarm_id": 14,
+      "severity": "ALARM",
+      "alarm_code": "DROPOUT_HIGH",
+      "target": "SYSTEM",
+      "timestamp_iso": "2026-01-19T08:30:00-08:00"
+    }
+  ],
+  "acked_alarms": [],
+  "escalation": {
+    "enabled": true,
+    "threshold_minutes": 30,
+    "escalated_count": 2,
+    "escalated_alarms": [
+      {
+        "alarm_id": 1,
+        "alarm_code": "REF_MOVE",
+        "target": "REF_A"
+      },
+      {
+        "alarm_id": 4,
+        "alarm_code": "SLOPE_EVENT_SYSTEM",
+        "target": "SYSTEM"
+      }
+    ]
+  },
+  "counts": {
+    "active": 8,
+    "latched": 6,
+    "acked": 0,
+    "critical_unacked": 2,
+    "alarm_unacked": 4
+  }
+}

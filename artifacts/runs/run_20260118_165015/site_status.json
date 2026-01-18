@@ -1,0 +1,13 @@
+{
+  "status": "CRITICAL",
+  "slope_event_active": true,
+  "contributing_radars": [],
+  "contributing_targets": [
+    "SLOPE_01",
+    "SLOPE_02"
+  ],
+  "per_radar_health": {
+    "primary": "OK"
+  },
+  "site_alarms": []
+}

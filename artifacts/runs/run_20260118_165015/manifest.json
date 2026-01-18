@@ -1,0 +1,32 @@
+{
+  "run_id": "run_20260118_165015",
+  "timestamp": "2026-01-18T16:50:23.521227",
+  "git_commit_hash": "3cd0190fe1b43d4cf607c82aa729db6f92d0d1b2",
+  "git_branch": "main",
+  "files_published": [
+    "runs/run_20260118_165015/scene_plan_view.png",
+    "runs/run_20260118_165015/scene_3d.png",
+    "runs/run_20260118_165015/hmi_station.png",
+    "runs/run_20260118_165015/timeseries_SLOPE_01.png",
+    "runs/run_20260118_165015/alarm_timeline.png",
+    "runs/run_20260118_165015/timeseries_grid.png",
+    "runs/run_20260118_165015/timeseries_SLOPE_03.png",
+    "runs/run_20260118_165015/timeseries_REF_B.png",
+    "runs/run_20260118_165015/timeseries_REF_A.png",
+    "runs/run_20260118_165015/timeseries_SLOPE_02.png",
+    "runs/run_20260118_165015/scene_3d_before_after.png",
+    "runs/run_20260118_165015/scene_elevation_view.png",
+    "runs/run_20260118_165015/geometry_metrics.csv",
+    "runs/run_20260118_165015/scada_telemetry.csv",
+    "runs/run_20260118_165015/alarm_log.csv",
+    "runs/run_20260118_165015/geometry_metrics.json",
+    "runs/run_20260118_165015/alarm_ack_template.json",
+    "runs/run_20260118_165015/site_status.json",
+    "runs/run_20260118_165015/manifest.json",
+    "runs/run_20260118_165015/alarm_state.json",
+    "runs/run_20260118_165015/report.md",
+    "runs/run_20260118_165015/results.md",
+    "runs/run_20260118_165015/run_20260118_165015.zip"
+  ],
+  "notes": ""
+}

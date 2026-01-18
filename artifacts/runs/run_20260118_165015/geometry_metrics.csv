@@ -1,0 +1,18 @@
+# System Summary
+# wavelength_m,0.0125
+# wavelength_mm,12.5
+# frequency_ghz,24.0
+# tx_power_dbm,20.0
+# ref_count,2
+# slope_count,3
+# min_range_m,206.31044568804558
+# max_range_m,1021.4249850086887
+# min_los_gain_slope,0.9635139295234503
+# max_los_gain_slope,0.9680615550165103
+
+name,role,pos_x_m,pos_y_m,pos_z_m,range_m,u_los_x,u_los_y,u_los_z,vertical_angle_deg,azimuth_deg,sensitivity_mm_per_rad,sensitivity_rad_per_mm,los_gain_for_motion,predicted_los_mm_per_true_mm
+REF_A,ref,200.000,-50.000,10.000,206.310,0.969413,-0.242353,0.038777,2.222,104.036,0.994718,1.005310,,
+REF_B,ref,210.000,40.000,12.000,214.009,0.981266,0.186908,0.046727,2.678,79.216,0.994718,1.005310,,
+SLOPE_01,slope,1000.000,-80.000,60.000,1004.870,0.995153,-0.079612,0.057719,3.309,94.574,0.994718,1.005310,0.963514,0.963514
+SLOPE_02,slope,1020.000,-10.000,55.000,1021.425,0.998605,-0.009790,0.051888,2.974,90.562,0.994718,1.005310,0.968062,0.968062
+SLOPE_03,slope,990.000,60.000,50.000,992.977,0.997002,0.060424,0.048339,2.771,86.532,0.994718,1.005310,0.967200,0.967200
